@@ -1,630 +1,814 @@
-import { useState, useEffect, useRef, FormEvent } from "react";
-import { 
-  Folder, 
-  FileCode, 
-  Settings, 
-  Play, 
-  Terminal as TermIcon, 
-  Sparkles, 
-  Save, 
-  Check, 
-  AlertTriangle, 
-  Send, 
-  HelpCircle,
-  Copy,
-  Plus,
+// src/components/IdeView.tsx
+import {
+  FormEvent,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
+
+import {
+  AlertCircle,
+  Check,
   ChevronDown,
-  ChevronRight,
+  FileCode,
+  Folder,
+  GitBranch,
+  Play,
   RefreshCw,
-  Clock
-} from "lucide-react";
-import { VirtualFile } from "../types";
+  Save,
+  Search,
+  Send,
+  Sparkles,
+} from 'lucide-react';
+
+import type { VirtualFile } from '../types';
+
+export type IdePanel =
+  | 'files'
+  | 'search'
+  | 'git'
+  | 'debug';
 
 interface IdeViewProps {
   files: VirtualFile[];
-  onSaveFile: (path: string, content: string) => Promise<void>;
-  onDeploy: () => void;
+
+  activePanel: IdePanel;
+
+  isLoadingFiles: boolean;
+
+  onRefreshFiles: () => Promise<void>;
+
+  onSaveFile: (
+    path: string,
+    content: string,
+  ) => Promise<void>;
+
+  onDeploy: () => Promise<void> | void;
+
   isDeploying: boolean;
+
   activeBlock: number;
+
   nodeStatus: string;
+
   terminalLogs: string[];
 }
 
-export default function IdeView({ 
-  files, 
-  onSaveFile, 
-  onDeploy, 
-  isDeploying, 
-  activeBlock, 
-  nodeStatus,
-  terminalLogs 
-}: IdeViewProps) {
-  
-  const [activeFilePath, setActiveFilePath] = useState<string>("internal/api/post.go");
-  const [editorContent, setEditorContent] = useState<string>("");
-  const [isSaving, setIsSaving] = useState<boolean>(false);
-  const [saveSuccess, setSaveSuccess] = useState<boolean>(false);
-  
-  // Terminal Tab State
-  const [activeTerminalTab, setActiveTerminalTab] = useState<'terminal' | 'debug' | 'output' | 'problems'>('terminal');
-  
-  // AI Panel State
-  const [aiPrompt, setAiPrompt] = useState<string>("");
-  const [aiResponse, setAiResponse] = useState<string>("");
-  const [isAiLoading, setIsAiLoading] = useState<boolean>(false);
-  const [aiMode, setAiMode] = useState<'chat' | 'explain' | 'generate'>('chat');
-  
-  // Terminal inputs state
-  const [terminalInput, setTerminalInput] = useState<string>("");
-  const [customTerminalLogs, setCustomTerminalLogs] = useState<string[]>([]);
-  
-  const terminalBottomRef = useRef<HTMLDivElement>(null);
+type BottomPanel =
+  | 'terminal'
+  | 'debug'
+  | 'output'
+  | 'problems';
 
-  // Sync editor content with file changes
+export default function IdeView({
+  files,
+  activePanel,
+  isLoadingFiles,
+  onRefreshFiles,
+  onSaveFile,
+  onDeploy,
+  isDeploying,
+  activeBlock,
+  nodeStatus,
+  terminalLogs,
+}: IdeViewProps) {
+  const [activeFilePath, setActiveFilePath] =
+    useState(() => files[0]?.path ?? '');
+
+  const [editorContent, setEditorContent] =
+    useState('');
+
+  const [isSaving, setIsSaving] =
+    useState(false);
+
+  const [saveSuccess, setSaveSuccess] =
+    useState(false);
+
+  const [activeBottomPanel, setActiveBottomPanel] =
+    useState<BottomPanel>('terminal');
+
+  const [terminalInput, setTerminalInput] =
+    useState('');
+
+  const [terminalOutput, setTerminalOutput] =
+    useState<string[]>([]);
+
+  const [searchQuery, setSearchQuery] =
+    useState('');
+
+  const [aiPrompt, setAiPrompt] =
+    useState('');
+
+  const [aiResponse, setAiResponse] =
+    useState('');
+
+  const [isAiLoading, setIsAiLoading] =
+    useState(false);
+
+  const terminalBottomRef =
+    useRef<HTMLDivElement>(null);
+
+  const currentFile = useMemo(
+    () =>
+      files.find(
+        (file) => file.path === activeFilePath,
+      ) ?? files[0],
+    [activeFilePath, files],
+  );
+
   useEffect(() => {
-    const currentFile = files.find(f => f.path === activeFilePath);
-    if (currentFile) {
-      setEditorContent(currentFile.content);
+    if (!activeFilePath && files.length > 0) {
+      setActiveFilePath(files[0].path);
     }
   }, [activeFilePath, files]);
 
-  // Scroll to bottom of terminal when logs change
   useEffect(() => {
-    if (terminalBottomRef.current) {
-      terminalBottomRef.current.scrollIntoView({ behavior: "smooth" });
+    if (currentFile) {
+      setEditorContent(currentFile.content);
     }
-  }, [terminalLogs, customTerminalLogs, activeTerminalTab]);
+  }, [currentFile]);
 
-  // Save active file changes
+  useEffect(() => {
+    terminalBottomRef.current?.scrollIntoView({
+      behavior: 'smooth',
+    });
+  }, [
+    terminalOutput,
+    terminalLogs,
+    activeBottomPanel,
+  ]);
+
+  const groupedFiles = useMemo(
+    () => ({
+      contracts: files.filter((file) =>
+        file.path.startsWith('contracts/'),
+      ),
+
+      src: files.filter((file) =>
+        file.path.startsWith('src/'),
+      ),
+
+      tests: files.filter((file) =>
+        file.path.startsWith('tests/'),
+      ),
+
+      config: files.filter(
+        (file) => !file.path.includes('/'),
+      ),
+    }),
+    [files],
+  );
+
+  const searchResults = useMemo(() => {
+    const query = searchQuery
+      .trim()
+      .toLowerCase();
+
+    if (!query) {
+      return [];
+    }
+
+    return files.filter(
+      (file) =>
+        file.name
+          .toLowerCase()
+          .includes(query) ||
+        file.path
+          .toLowerCase()
+          .includes(query) ||
+        file.content
+          .toLowerCase()
+          .includes(query),
+    );
+  }, [files, searchQuery]);
+
   const handleSave = async () => {
+    if (!currentFile) {
+      return;
+    }
+
     setIsSaving(true);
-    await onSaveFile(activeFilePath, editorContent);
-    setIsSaving(false);
-    setSaveSuccess(true);
-    setTimeout(() => setSaveSuccess(false), 2000);
+
+    try {
+      await onSaveFile(
+        currentFile.path,
+        editorContent,
+      );
+
+      setSaveSuccess(true);
+
+      window.setTimeout(() => {
+        setSaveSuccess(false);
+      }, 2000);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  // AI Prompt Request
-  const handleAiAction = async (selectedMode: 'chat' | 'explain' | 'generate', customPrompt?: string) => {
+  const handleTerminalSubmit = (
+    event: FormEvent,
+  ) => {
+    event.preventDefault();
+
+    const command = terminalInput.trim();
+
+    if (!command) {
+      return;
+    }
+
+    if (command === 'clear') {
+      setTerminalOutput([]);
+      setTerminalInput('');
+      return;
+    }
+
+    setTerminalOutput((current) => [
+      ...current,
+      `root@fiber-runtime:/workspace# ${command}`,
+      `Command queued: ${command}`,
+    ]);
+
+    setTerminalInput('');
+  };
+
+  const handleAiSubmit = async (
+    event: FormEvent,
+  ) => {
+    event.preventDefault();
+
+    if (!aiPrompt.trim()) {
+      return;
+    }
+
     setIsAiLoading(true);
-    setAiMode(selectedMode);
-    
-    const promptToSend = customPrompt || aiPrompt || (selectedMode === 'explain' ? "Explain this router handler" : "Write a Go Fiber handler");
-    
+
     try {
-      const response = await fetch("/api/ai/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          prompt: promptToSend,
-          currentFile: activeFilePath,
-          fileContent: editorContent,
-          mode: selectedMode
-        })
-      });
-      const data = await response.json();
-      if (data.error) {
-        setAiResponse(`Error: ${data.error}`);
-      } else {
-        setAiResponse(data.response);
+      const response = await fetch(
+        '/api/ai/chat',
+        {
+          method: 'POST',
+
+          headers: {
+            'Content-Type': 'application/json',
+          },
+
+          body: JSON.stringify({
+            prompt: aiPrompt,
+            currentFile:
+              currentFile?.path ?? null,
+            fileContent: editorContent,
+          }),
+        },
+      );
+
+      if (!response.ok) {
+        throw new Error(
+          'AI assistant is unavailable',
+        );
       }
-    } catch (err: any) {
-      setAiResponse(`Failed to contact assistant: ${err.message}`);
+
+      const data = await response.json();
+
+      setAiResponse(
+        data.response ??
+        'No response was returned.',
+      );
+    } catch (error) {
+      setAiResponse(
+        error instanceof Error
+          ? error.message
+          : 'AI request failed',
+      );
     } finally {
       setIsAiLoading(false);
     }
   };
 
-  // Auto Insert AI Code into active editor
-  const handleInsertCode = (code: string) => {
-    // Basic helper to extract Go code inside markdown blocks if present
-    let cleanCode = code;
-    const match = code.match(/```go\n([\s\S]*?)```/);
-    if (match && match[1]) {
-      cleanCode = match[1];
-    } else {
-      const matchAny = code.match(/```([\s\S]*?)```/);
-      if (matchAny && matchAny[1]) {
-        cleanCode = matchAny[1];
-      }
-    }
-    setEditorContent(cleanCode);
-  };
-
-  // Handle Terminal input execution
-  const handleTerminalSubmit = (e: FormEvent) => {
-    e.preventDefault();
-    if (!terminalInput.trim()) return;
-
-    const cmd = terminalInput.trim();
-    const newLogs = [...customTerminalLogs, `➜ fiber-app git:(main) ✗ ${cmd}`];
-    
-    if (cmd === "clear") {
-      setCustomTerminalLogs([]);
-      setTerminalInput("");
-      return;
+  const renderFileGroup = (
+    label: string,
+    groupFiles: VirtualFile[],
+  ) => {
+    if (groupFiles.length === 0) {
+      return null;
     }
 
-    if (cmd === "fiber run" || cmd === "go run cmd/main.go") {
-      newLogs.push(
-        "[fiber] Starting Go Fiber server...",
-        "[fiber] Loading configuration from env...",
-        `[fiber] DB connection successfully established`,
-        `[fiber] App loaded: FiberDev Microservice (port: 3000)`,
-        `[fiber] 127.0.0.1:3000 - Listening for requests...`
-      );
-    } else if (cmd === "go test ./...") {
-      newLogs.push(
-        "?   \tfiber-app/cmd\t[no test files]",
-        "ok  \tfiber-app/internal/api\t0.045s\tcoverage: 85.2% of statements",
-        "ok  \tfiber-app/pkg/db\t0.012s\tcoverage: 100% of statements"
-      );
-    } else if (cmd === "fiber deploy") {
-      newLogs.push("[build] Initiating contract deployment...");
-      onDeploy();
-    } else {
-      newLogs.push(`sh: command not found: ${cmd.split(" ")[0]}. Try 'fiber run', 'go test ./...', or 'fiber deploy'.`);
-    }
+    return (
+      <div className="space-y-1">
+        <div className="flex items-center gap-1.5 px-2 py-1 text-xs font-semibold text-gray-400">
+          <ChevronDown className="h-3.5 w-3.5" />
 
-    setCustomTerminalLogs(newLogs);
-    setTerminalInput("");
-  };
+          <Folder className="h-4 w-4 text-[#58a6ff]" />
 
-  // Group files by directory structure
-  const folders = {
-    cmd: files.filter(f => f.path.startsWith("cmd/")),
-    api: files.filter(f => f.path.startsWith("internal/api/")),
-    models: files.filter(f => f.path.startsWith("internal/models/")),
-    pkg: files.filter(f => f.path.startsWith("pkg/")),
-    root: files.filter(f => !f.path.includes("/"))
-  };
-
-  const currentFile = files.find(f => f.path === activeFilePath) || files[0];
-
-  return (
-    <div className="flex h-[calc(100vh-3.5rem)] text-gray-200 bg-[#0d1117] overflow-hidden select-none">
-      
-      {/* LEFT COLUMN: Collapsible File Explorer Tree */}
-      <div className="w-64 bg-[#161b22] border-r border-[#30363d] flex flex-col shrink-0">
-        <div className="h-11 flex items-center px-4 justify-between bg-[#0d1117] border-b border-[#30363d]">
-          <span className="font-mono text-xs text-gray-400 font-bold uppercase tracking-widest">Explorer: FIBER-APP</span>
-          <button 
-            title="Reload VFS"
-            className="text-gray-500 hover:text-white p-1 hover:bg-gray-800 rounded"
-          >
-            <RefreshCw className="h-3.5 w-3.5" />
-          </button>
+          <span>{label}</span>
         </div>
-        
-        {/* VFS File list scroll */}
-        <div className="flex-1 overflow-y-auto py-3 px-2 space-y-1 scrollbar-thin">
-          
-          {/* cmd folder */}
-          <div className="space-y-0.5">
-            <div className="flex items-center gap-1.5 py-1 px-2 text-gray-400 hover:text-white hover:bg-gray-800/30 rounded cursor-pointer text-xs font-semibold">
-              <ChevronDown className="h-3.5 w-3.5" />
-              <Folder className="h-4 w-4 text-[#58a6ff] fill-[#58a6ff]/10" />
-              <span>cmd</span>
-            </div>
-            <div className="pl-6 space-y-0.5">
-              {folders.cmd.map(f => (
-                <div 
-                  key={f.path}
-                  onClick={() => setActiveFilePath(f.path)}
-                  className={`flex items-center gap-2 py-1 px-2 rounded cursor-pointer text-xs font-mono border-l-2 ${
-                    activeFilePath === f.path 
-                      ? 'bg-[#1f6feb]/10 border-[#1f6feb] text-[#58a6ff] font-semibold' 
-                      : 'border-transparent text-gray-400 hover:text-gray-200 hover:bg-gray-800/20'
-                  }`}
-                >
-                  <FileCode className="h-3.5 w-3.5 text-[#58a6ff]" />
-                  <span className="truncate">{f.name}</span>
-                </div>
-              ))}
-            </div>
-          </div>
 
-          {/* internal/api folder */}
-          <div className="space-y-0.5">
-            <div className="flex items-center gap-1.5 py-1 px-2 text-gray-400 hover:text-white hover:bg-gray-800/30 rounded cursor-pointer text-xs font-semibold">
-              <ChevronDown className="h-3.5 w-3.5" />
-              <Folder className="h-4 w-4 text-[#58a6ff] fill-[#58a6ff]/10" />
-              <span>internal/api</span>
-            </div>
-            <div className="pl-6 space-y-0.5">
-              {folders.api.map(f => (
-                <div 
-                  key={f.path}
-                  onClick={() => setActiveFilePath(f.path)}
-                  className={`flex items-center gap-2 py-1 px-2 rounded cursor-pointer text-xs font-mono border-l-2 ${
-                    activeFilePath === f.path 
-                      ? 'bg-[#1f6feb]/10 border-[#1f6feb] text-[#58a6ff] font-semibold' 
-                      : 'border-transparent text-gray-400 hover:text-gray-200 hover:bg-gray-800/20'
-                  }`}
-                >
-                  <FileCode className="h-3.5 w-3.5 text-[#a5d6ff]" />
-                  <span className="truncate">{f.name}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* internal/models folder */}
-          <div className="space-y-0.5">
-            <div className="flex items-center gap-1.5 py-1 px-2 text-gray-400 hover:text-white hover:bg-gray-800/30 rounded cursor-pointer text-xs font-semibold">
-              <ChevronDown className="h-3.5 w-3.5" />
-              <Folder className="h-4 w-4 text-[#58a6ff] fill-[#58a6ff]/10" />
-              <span>internal/models</span>
-            </div>
-            <div className="pl-6 space-y-0.5">
-              {folders.models.map(f => (
-                <div 
-                  key={f.path}
-                  onClick={() => setActiveFilePath(f.path)}
-                  className={`flex items-center gap-2 py-1 px-2 rounded cursor-pointer text-xs font-mono border-l-2 ${
-                    activeFilePath === f.path 
-                      ? 'bg-[#1f6feb]/10 border-[#1f6feb] text-[#58a6ff] font-semibold' 
-                      : 'border-transparent text-gray-400 hover:text-gray-200 hover:bg-gray-800/20'
-                  }`}
-                >
-                  <FileCode className="h-3.5 w-3.5 text-[#ff7b72]" />
-                  <span className="truncate">{f.name}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* pkg/db folder */}
-          <div className="space-y-0.5">
-            <div className="flex items-center gap-1.5 py-1 px-2 text-gray-400 hover:text-white hover:bg-gray-800/30 rounded cursor-pointer text-xs font-semibold">
-              <ChevronDown className="h-3.5 w-3.5" />
-              <Folder className="h-4 w-4 text-[#58a6ff] fill-[#58a6ff]/10" />
-              <span>pkg/db</span>
-            </div>
-            <div className="pl-6 space-y-0.5">
-              {folders.pkg.map(f => (
-                <div 
-                  key={f.path}
-                  onClick={() => setActiveFilePath(f.path)}
-                  className={`flex items-center gap-2 py-1 px-2 rounded cursor-pointer text-xs font-mono border-l-2 ${
-                    activeFilePath === f.path 
-                      ? 'bg-[#1f6feb]/10 border-[#1f6feb] text-[#58a6ff] font-semibold' 
-                      : 'border-transparent text-gray-400 hover:text-gray-200 hover:bg-gray-800/20'
-                  }`}
-                >
-                  <FileCode className="h-3.5 w-3.5 text-sky-400" />
-                  <span className="truncate">{f.name}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Root config files */}
-          <div className="pt-2 space-y-0.5">
-            {folders.root.map(f => (
-              <div 
-                key={f.path}
-                onClick={() => setActiveFilePath(f.path)}
-                className={`flex items-center gap-2 py-1 px-2 rounded cursor-pointer text-xs font-mono border-l-2 ${
-                  activeFilePath === f.path 
-                    ? 'bg-[#1f6feb]/10 border-[#1f6feb] text-[#58a6ff] font-semibold' 
-                    : 'border-transparent text-gray-400 hover:text-gray-200 hover:bg-gray-800/20'
+        <div className="space-y-0.5 pl-5">
+          {groupFiles.map((file) => (
+            <button
+              type="button"
+              key={file.path}
+              onClick={() =>
+                setActiveFilePath(file.path)
+              }
+              className={`flex w-full items-center gap-2 rounded border-l-2 px-2 py-1 text-left font-mono text-xs ${activeFilePath === file.path
+                ? 'border-[#1f6feb] bg-[#1f6feb]/10 text-[#58a6ff]'
+                : 'border-transparent text-gray-400 hover:bg-gray-800/30 hover:text-gray-200'
                 }`}
-              >
-                <Settings className="h-3.5 w-3.5 text-gray-500" />
-                <span className="truncate">{f.name}</span>
-              </div>
-            ))}
-          </div>
+            >
+              <FileCode className="h-3.5 w-3.5 shrink-0" />
 
-        </div>
-
-        {/* Node status box */}
-        <div className="p-4 border-t border-[#30363d] bg-[#161b22]/40 text-xs">
-          <div className="flex justify-between text-gray-400">
-            <span>Blockchain Height:</span>
-            <span className="font-mono font-bold text-[#58a6ff]">#{activeBlock}</span>
-          </div>
-          <div className="flex justify-between text-gray-400 mt-1">
-            <span>Uptime:</span>
-            <span className="font-mono">Stable Devnet</span>
-          </div>
+              <span className="truncate">
+                {file.name}
+              </span>
+            </button>
+          ))}
         </div>
       </div>
+    );
+  };
 
-      {/* MIDDLE COLUMN: Tab list breadcrumbs + Active Editor + Collapsible bottom Terminal */}
-      <div className="flex-1 flex flex-col min-w-0 bg-[#0d1117]">
-        
-        {/* Editor tabs bar */}
-        <div className="flex h-11 bg-[#161b22] border-b border-[#30363d] overflow-x-auto">
-          {/* Active File Tab */}
-          <div className="flex items-center px-4 gap-2 bg-[#0d1117] border-r border-[#30363d] border-t-2 border-t-[#1f6feb] text-[#58a6ff] cursor-pointer h-full">
-            <FileCode className="h-3.5 w-3.5 text-[#a5d6ff]" />
-            <span className="font-mono text-xs font-semibold">{currentFile.name}</span>
-            <span className="text-gray-500 hover:text-white rounded ml-1 text-[10px]">✕</span>
-          </div>
-          
-          {/* Dummy extra tab */}
-          <div 
-            onClick={() => setActiveFilePath("cmd/main.go")}
-            className="flex items-center px-4 gap-2 text-gray-500 hover:text-gray-300 border-r border-[#30363d] hover:bg-gray-800/10 cursor-pointer h-full"
-          >
-            <FileCode className="h-3.5 w-3.5 opacity-50" />
-            <span className="font-mono text-xs">main.go</span>
-          </div>
-        </div>
+  const renderSidebarPanel = () => {
+    if (activePanel === 'search') {
+      return (
+        <>
+          <PanelHeader title="Search" />
 
-        {/* Breadcrumb row & Controls */}
-        <div className="flex items-center justify-between h-8 px-4 bg-[#0d1117] border-b border-[#30363d]/50 text-[11px] text-gray-500">
-          <div className="flex items-center gap-1 font-mono">
-            <span>FIBER-APP</span>
-            <span>&gt;</span>
-            {currentFile.path.split("/").map((part, idx, arr) => (
-              <span key={idx} className={idx === arr.length - 1 ? "text-gray-300 font-semibold" : ""}>
-                {part} {idx < arr.length - 1 && " > "}
-              </span>
+          <div className="p-3">
+            <div className="relative">
+              <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-500" />
+
+              <input
+                value={searchQuery}
+                onChange={(event) =>
+                  setSearchQuery(
+                    event.target.value,
+                  )
+                }
+                placeholder="Search workspace..."
+                className="w-full rounded border border-[#30363d] bg-[#0d1117] py-2 pl-9 pr-3 text-xs text-gray-200 outline-none focus:border-[#58a6ff]"
+              />
+            </div>
+          </div>
+
+          <div className="flex-1 overflow-y-auto px-2">
+            {!searchQuery && (
+              <p className="p-3 text-xs text-gray-500">
+                Search filenames, paths, and
+                source code.
+              </p>
+            )}
+
+            {searchQuery &&
+              searchResults.length === 0 && (
+                <p className="p-3 text-xs text-gray-500">
+                  No matching files found.
+                </p>
+              )}
+
+            {searchResults.map((file) => (
+              <button
+                type="button"
+                key={file.path}
+                onClick={() =>
+                  setActiveFilePath(file.path)
+                }
+                className="mb-1 flex w-full items-start gap-2 rounded px-2 py-2 text-left hover:bg-gray-800/30"
+              >
+                <FileCode className="mt-0.5 h-4 w-4 shrink-0 text-[#58a6ff]" />
+
+                <span className="min-w-0">
+                  <span className="block truncate text-xs text-gray-200">
+                    {file.name}
+                  </span>
+
+                  <span className="block truncate font-mono text-[10px] text-gray-500">
+                    {file.path}
+                  </span>
+                </span>
+              </button>
             ))}
           </div>
+        </>
+      );
+    }
 
-          <div className="flex items-center gap-3">
-            <span className="text-[10px] text-emerald-400 flex items-center gap-1 font-mono">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              Auto-Save ON
-            </span>
-            
-            <button 
-              onClick={handleSave}
-              disabled={isSaving}
-              className={`flex items-center gap-1 px-2.5 py-1 bg-[#21262d] hover:bg-[#30363d] border border-[#30363d] rounded hover:border-gray-500 text-gray-300 transition-colors ${
-                saveSuccess ? "border-emerald-500/50 text-emerald-400" : ""
-              }`}
+    if (activePanel === 'git') {
+      return (
+        <>
+          <PanelHeader title="Source Control" />
+
+          <div className="flex-1 space-y-4 p-4">
+            <div className="rounded-lg border border-[#30363d] bg-[#0d1117] p-3">
+              <div className="flex items-center gap-2 text-xs font-semibold text-gray-200">
+                <GitBranch className="h-4 w-4 text-[#58a6ff]" />
+                main
+              </div>
+
+              <p className="mt-2 text-[11px] text-gray-500">
+                No uncommitted changes.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              disabled
+              className="w-full rounded-lg border border-[#30363d] bg-[#21262d] py-2 text-xs text-gray-500"
             >
-              {saveSuccess ? (
-                <>
-                  <Check className="h-3.5 w-3.5" />
-                  Saved
-                </>
-              ) : (
-                <>
-                  <Save className="h-3.5 w-3.5" />
-                  Save File
-                </>
-              )}
+              Commit changes
             </button>
           </div>
+        </>
+      );
+    }
+
+    if (activePanel === 'debug') {
+      return (
+        <>
+          <PanelHeader title="Run & Debug" />
+
+          <div className="flex-1 space-y-4 p-4">
+            <div className="rounded-lg border border-[#30363d] bg-[#0d1117] p-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-gray-200">
+                  Runtime
+                </span>
+
+                <span
+                  className={`text-[10px] ${nodeStatus === 'Operational'
+                    ? 'text-emerald-400'
+                    : 'text-amber-400'
+                    }`}
+                >
+                  {nodeStatus}
+                </span>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => void onDeploy()}
+              disabled={isDeploying}
+              className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#238636] py-2 text-xs font-semibold text-white hover:bg-[#2ea043] disabled:opacity-50"
+            >
+              <Play className="h-4 w-4" />
+
+              {isDeploying
+                ? 'Deploying...'
+                : 'Run Workspace'}
+            </button>
+          </div>
+        </>
+      );
+    }
+
+    return (
+      <>
+        <div className="flex h-11 items-center justify-between border-b border-[#30363d] bg-[#0d1117] px-4">
+          <span className="font-mono text-xs font-bold uppercase tracking-widest text-gray-400">
+            Explorer
+          </span>
+
+          <button
+            type="button"
+            title="Refresh files"
+            onClick={() =>
+              void onRefreshFiles()
+            }
+            disabled={isLoadingFiles}
+            className="rounded p-1 text-gray-500 hover:bg-gray-800 hover:text-white disabled:opacity-50"
+          >
+            <RefreshCw
+              className={`h-3.5 w-3.5 ${isLoadingFiles
+                ? 'animate-spin'
+                : ''
+                }`}
+            />
+          </button>
         </div>
 
-        {/* Workspace Code Textarea */}
-        <div className="flex-1 relative overflow-hidden bg-[#0d1117] flex">
-          {/* Simulated Line numbers gutter */}
-          <div className="w-11 bg-[#0d1117]/80 border-r border-gray-800/50 text-right pr-3 pt-4 select-none font-mono text-[11px] text-gray-600 leading-[1.6]">
-            {Array.from({ length: 42 }, (_, i) => (
-              <div key={i}>{i + 1}</div>
-            ))}
+        <div className="flex-1 space-y-2 overflow-y-auto px-2 py-3">
+          {renderFileGroup(
+            'contracts',
+            groupedFiles.contracts,
+          )}
+
+          {renderFileGroup(
+            'src',
+            groupedFiles.src,
+          )}
+
+          {renderFileGroup(
+            'tests',
+            groupedFiles.tests,
+          )}
+
+          {renderFileGroup(
+            'config',
+            groupedFiles.config,
+          )}
+        </div>
+
+        <div className="border-t border-[#30363d] p-4 text-xs">
+          <div className="flex justify-between text-gray-400">
+            <span>Block:</span>
+
+            <span className="font-mono font-bold text-[#58a6ff]">
+              #{activeBlock}
+            </span>
           </div>
 
-          {/* Active editor textarea */}
+          <div className="mt-1 flex justify-between text-gray-400">
+            <span>Status:</span>
+
+            <span className="font-mono text-emerald-400">
+              {nodeStatus}
+            </span>
+          </div>
+        </div>
+      </>
+    );
+  };
+
+  if (!currentFile) {
+    return (
+      <div className="flex h-full items-center justify-center bg-[#0d1117] text-sm text-gray-500">
+        No workspace files are available.
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex h-[calc(100vh-3.5rem)] overflow-hidden bg-[#0d1117] text-gray-200">
+      <aside className="flex w-64 shrink-0 flex-col border-r border-[#30363d] bg-[#161b22]">
+        {renderSidebarPanel()}
+      </aside>
+
+      <section className="flex min-w-0 flex-1 flex-col bg-[#0d1117]">
+        <div className="flex h-11 items-center border-b border-[#30363d] bg-[#161b22]">
+          <div className="flex h-full items-center gap-2 border-r border-[#30363d] border-t-2 border-t-[#1f6feb] bg-[#0d1117] px-4 text-[#58a6ff]">
+            <FileCode className="h-3.5 w-3.5" />
+
+            <span className="font-mono text-xs font-semibold">
+              {currentFile.name}
+            </span>
+          </div>
+        </div>
+
+        <div className="flex h-9 items-center justify-between border-b border-[#30363d]/60 px-4 text-[11px] text-gray-500">
+          <div className="flex items-center gap-1 font-mono">
+            <span>WORKSPACE</span>
+
+            {currentFile.path
+              .split('/')
+              .map((part, index, parts) => (
+                <span key={`${part}-${index}`}>
+                  {' > '}
+
+                  <span
+                    className={
+                      index === parts.length - 1
+                        ? 'font-semibold text-gray-300'
+                        : ''
+                    }
+                  >
+                    {part}
+                  </span>
+                </span>
+              ))}
+          </div>
+
+          <button
+            type="button"
+            onClick={() => void handleSave()}
+            disabled={isSaving}
+            className={`flex items-center gap-1 rounded border border-[#30363d] bg-[#21262d] px-2.5 py-1 text-gray-300 hover:bg-[#30363d] disabled:opacity-50 ${saveSuccess
+              ? 'border-emerald-500/50 text-emerald-400'
+              : ''
+              }`}
+          >
+            {saveSuccess ? (
+              <>
+                <Check className="h-3.5 w-3.5" />
+                Saved
+              </>
+            ) : (
+              <>
+                <Save className="h-3.5 w-3.5" />
+                {isSaving
+                  ? 'Saving...'
+                  : 'Save'}
+              </>
+            )}
+          </button>
+        </div>
+
+        <div className="flex min-h-0 flex-1">
+          <div className="w-12 select-none overflow-hidden border-r border-gray-800/50 pt-4 pr-3 text-right font-mono text-[11px] leading-[1.6] text-gray-600">
+            {editorContent
+              .split('\n')
+              .map((_, index) => (
+                <div key={index}>
+                  {index + 1}
+                </div>
+              ))}
+          </div>
+
           <textarea
             value={editorContent}
-            onChange={(e) => setEditorContent(e.target.value)}
-            className="flex-1 p-4 bg-transparent resize-none focus:outline-none font-mono text-xs text-gray-300 leading-[1.6] overflow-y-auto scrollbar-thin select-text h-full placeholder-gray-700"
-            style={{ tabSize: 4 }}
-            placeholder="// Write high-performance Go code here..."
+            onChange={(event) =>
+              setEditorContent(
+                event.target.value,
+              )
+            }
+            spellCheck={false}
+            className="h-full flex-1 resize-none overflow-y-auto bg-transparent p-4 font-mono text-xs leading-[1.6] text-gray-300 outline-none"
+            style={{ tabSize: 2 }}
           />
         </div>
 
-        {/* BOTTOM PANEL: Collapsible Multi-tab Terminal log stream */}
-        <div className="h-48 bg-[#161b22] border-t border-[#30363d] flex flex-col shrink-0">
-          {/* Terminal control bar */}
-          <div className="flex items-center px-4 h-9 bg-[#0d1117] border-b border-[#30363d] gap-6 text-[11px] font-mono font-bold">
-            <button 
-              onClick={() => setActiveTerminalTab('terminal')}
-              className={`h-full flex items-center border-b-2 px-1 transition-all uppercase ${
-                activeTerminalTab === 'terminal' 
-                  ? 'border-[#1f6feb] text-[#58a6ff]' 
+        <div className="flex h-52 shrink-0 flex-col border-t border-[#30363d] bg-[#161b22]">
+          <div className="flex h-9 items-center gap-5 border-b border-[#30363d] bg-[#0d1117] px-4 font-mono text-[11px] font-bold">
+            {(
+              [
+                'terminal',
+                'debug',
+                'output',
+                'problems',
+              ] as BottomPanel[]
+            ).map((panel) => (
+              <button
+                type="button"
+                key={panel}
+                onClick={() =>
+                  setActiveBottomPanel(panel)
+                }
+                className={`h-full border-b-2 px-1 uppercase ${activeBottomPanel === panel
+                  ? 'border-[#1f6feb] text-[#58a6ff]'
                   : 'border-transparent text-gray-500 hover:text-gray-300'
-              }`}
-            >
-              TERMINAL
-            </button>
-            <button 
-              onClick={() => setActiveTerminalTab('debug')}
-              className={`h-full flex items-center border-b-2 px-1 transition-all uppercase ${
-                activeTerminalTab === 'debug' 
-                  ? 'border-[#1f6feb] text-[#58a6ff]' 
-                  : 'border-transparent text-gray-500 hover:text-gray-300'
-              }`}
-            >
-              DEBUG CONSOLE
-            </button>
-            <button 
-              onClick={() => setActiveTerminalTab('output')}
-              className={`h-full flex items-center border-b-2 px-1 transition-all uppercase ${
-                activeTerminalTab === 'output' 
-                  ? 'border-[#1f6feb] text-[#58a6ff]' 
-                  : 'border-transparent text-gray-500 hover:text-gray-300'
-              }`}
-            >
-              OUTPUT
-            </button>
-            <button 
-              onClick={() => setActiveTerminalTab('problems')}
-              className={`h-full flex items-center border-b-2 px-1 transition-all uppercase ${
-                activeTerminalTab === 'problems' 
-                  ? 'border-[#1f6feb] text-[#58a6ff]' 
-                  : 'border-transparent text-gray-500 hover:text-gray-300'
-              }`}
-            >
-              PROBLEMS (0)
-            </button>
-
-            {/* Deploy feedback in Terminal footer */}
-            <div className="ml-auto hidden sm:flex items-center gap-4 text-gray-500">
-              <span>Host: localhost:3000</span>
-              <span>Port: 3000</span>
-            </div>
+                  }`}
+              >
+                {panel}
+              </button>
+            ))}
           </div>
 
-          {/* Terminal Console log stream viewport */}
-          <div className="flex-1 p-4 font-mono text-xs overflow-y-auto bg-[#0d1117] scrollbar-thin flex flex-col justify-between">
-            
-            {activeTerminalTab === 'terminal' && (
-              <div className="space-y-1">
-                <div className="text-gray-500">FiberDev Studio Cloud Workspace Shell v1.0.4</div>
-                <div className="text-gray-400">Type 'fiber run' or 'go test ./...' to trigger compiler pipelines.</div>
-                
-                {/* Active Simulated node logs or custom typed logs */}
-                {customTerminalLogs.length === 0 ? (
-                  <>
-                    <div className="text-[#58a6ff] mt-2">➜ fiber-app git:(main) ✗ fiber run</div>
-                    <div className="text-gray-400 leading-relaxed">
-                      [fiber] 14:22:10 <span className="text-[#58a6ff]">INFO</span> | Loaded env from local .env config file<br />
-                      [fiber] 14:22:10 <span className="text-[#58a6ff]">INFO</span> | Preparing router mappings for Go models...<br />
-                      [fiber] 14:22:11 <span className="text-[#58a6ff]">INFO</span> | Listening on host <span className="text-amber-400 underline cursor-pointer">http://localhost:3000</span><br />
-                      [fiber] 14:22:11 <span className="text-[#58a6ff]">INFO</span> | Running in container environment mode...
-                    </div>
-                  </>
-                ) : (
-                  customTerminalLogs.map((logLine, idx) => (
-                    <div key={idx} className="whitespace-pre text-gray-300 leading-relaxed">{logLine}</div>
-                  ))
-                )}
+          <div className="flex-1 overflow-y-auto bg-[#0d1117] p-4 font-mono text-xs">
+            {activeBottomPanel ===
+              'terminal' && (
+                <div>
+                  <div className="mb-2 text-gray-500">
+                    FiberDev runtime terminal
+                  </div>
 
-                {/* Form input command typing simulation */}
-                <form onSubmit={handleTerminalSubmit} className="flex items-center gap-1 text-white mt-1 pt-1">
-                  <span className="text-[#58a6ff] shrink-0 font-bold">➜ fiber-app git:(main) ✗ </span>
-                  <input
-                    type="text"
-                    value={terminalInput}
-                    onChange={(e) => setTerminalInput(e.target.value)}
-                    className="flex-1 bg-transparent focus:outline-none font-mono text-xs text-white"
-                    placeholder="Type console command..."
-                  />
-                </form>
-              </div>
-            )}
+                  {terminalOutput.map(
+                    (line, index) => (
+                      <div
+                        key={index}
+                        className="whitespace-pre-wrap text-gray-300"
+                      >
+                        {line}
+                      </div>
+                    ),
+                  )}
 
-            {activeTerminalTab === 'debug' && (
-              <div className="space-y-1 text-amber-300">
-                <div>[debug] Attached to local process singletons...</div>
-                <div>[debug] Listening for VM breakpoints...</div>
-                <div className="text-gray-500">No active breakpoint triggered. Run contract deployment to inspect transactions.</div>
-              </div>
-            )}
+                  <form
+                    onSubmit={
+                      handleTerminalSubmit
+                    }
+                    className="mt-1 flex items-center gap-2"
+                  >
+                    <span className="text-[#58a6ff]">
+                      $
+                    </span>
 
-            {activeTerminalTab === 'output' && (
-              <div className="space-y-1.5 text-[#ff7b72]">
-                <div className="text-gray-400">-- Build Output (go build) --</div>
-                {terminalLogs.slice(-10).map((line, idx) => (
-                  <div key={idx} className="font-mono text-[11px] truncate">{line}</div>
-                ))}
-              </div>
-            )}
+                    <input
+                      value={terminalInput}
+                      onChange={(event) =>
+                        setTerminalInput(
+                          event.target.value,
+                        )
+                      }
+                      placeholder="Enter command..."
+                      className="flex-1 bg-transparent text-white outline-none"
+                    />
+                  </form>
+                </div>
+              )}
 
-            {activeTerminalTab === 'problems' && (
-              <div className="text-emerald-400 flex items-center gap-2">
-                <span>✓ No structural compilation syntax warnings. Your Go code is perfectly clean.</span>
-              </div>
-            )}
+            {activeBottomPanel ===
+              'debug' && (
+                <div className="text-amber-300">
+                  Debugger is not attached.
+                </div>
+              )}
+
+            {activeBottomPanel ===
+              'output' && (
+                <div className="space-y-1">
+                  {terminalLogs.length === 0 ? (
+                    <span className="text-gray-500">
+                      No runtime output.
+                    </span>
+                  ) : (
+                    terminalLogs
+                      .slice(-20)
+                      .map((line, index) => (
+                        <div
+                          key={index}
+                          className="text-gray-300"
+                        >
+                          {line}
+                        </div>
+                      ))
+                  )}
+                </div>
+              )}
+
+            {activeBottomPanel ===
+              'problems' && (
+                <div className="flex items-center gap-2 text-emerald-400">
+                  <Check className="h-4 w-4" />
+                  No problems detected.
+                </div>
+              )}
 
             <div ref={terminalBottomRef} />
           </div>
         </div>
-      </div>
+      </section>
 
-      {/* RIGHT COLUMN: Gemini AI Coding Assistant Panel */}
-      <div className="w-80 bg-[#161b22] border-l border-[#30363d] flex flex-col shrink-0 select-none">
-        <div className="h-11 flex items-center px-4 justify-between bg-[#0d1117] border-b border-[#30363d]">
-          <span className="font-mono text-xs text-[#58a6ff] font-bold uppercase tracking-widest flex items-center gap-2">
-            <Sparkles className="h-4 w-4 animate-pulse text-[#58a6ff]" />
-            Gemini Assistant
+      <aside className="flex w-80 shrink-0 flex-col border-l border-[#30363d] bg-[#161b22]">
+        <div className="flex h-11 items-center justify-between border-b border-[#30363d] bg-[#0d1117] px-4">
+          <span className="flex items-center gap-2 font-mono text-xs font-bold uppercase tracking-widest text-[#58a6ff]">
+            <Sparkles className="h-4 w-4" />
+            AI Assistant
           </span>
-          <span className="text-[10px] bg-[#1f6feb]/10 text-[#58a6ff] px-2 py-0.5 rounded border border-[#1f6feb]/20 font-mono">
-            3.5-flash
+
+          <span className="rounded border border-[#1f6feb]/20 bg-[#1f6feb]/10 px-2 py-0.5 font-mono text-[10px] text-[#58a6ff]">
+            Preview
           </span>
         </div>
 
-        {/* AI Action Quick Triggers Panel */}
-        <div className="p-4 border-b border-[#30363d] bg-[#161b22]/20 space-y-3 shrink-0">
-          <div className="text-xs text-gray-400 font-medium">Quick Context Prompts:</div>
-          <div className="grid grid-cols-2 gap-2">
-            <button 
-              onClick={() => handleAiAction('explain')}
-              className="bg-[#21262d] border border-[#30363d] hover:border-[#58a6ff] hover:bg-[#30363d] text-xs py-1.5 px-2 rounded-lg text-gray-200 font-semibold transition-colors flex items-center gap-1 justify-center cursor-pointer"
-            >
-              Explain File
-            </button>
-            <button 
-              onClick={() => handleAiAction('generate', 'Generate an API route with custom fields')}
-              className="bg-[#21262d] border border-[#30363d] hover:border-[#58a6ff] hover:bg-[#30363d] text-xs py-1.5 px-2 rounded-lg text-gray-200 font-semibold transition-colors flex items-center gap-1 justify-center cursor-pointer"
-            >
-              Write Route
-            </button>
-          </div>
-        </div>
-
-        {/* AI response panel display */}
-        <div className="flex-1 p-4 overflow-y-auto scrollbar-thin bg-[#0d1117]/60 select-text font-body-sm text-xs leading-relaxed space-y-4">
+        <div className="flex-1 overflow-y-auto bg-[#0d1117]/60 p-4 text-xs">
           {isAiLoading ? (
-            <div className="flex flex-col items-center justify-center py-10 space-y-3 text-center text-gray-400">
-              <span className="w-8 h-8 border-3 border-[#1f6feb] border-t-transparent rounded-full animate-spin" />
-              <div className="font-mono text-[10px] text-[#58a6ff] animate-pulse">Gemini reasoning with deep compiler context...</div>
+            <div className="flex h-full items-center justify-center text-gray-500">
+              Thinking...
             </div>
           ) : aiResponse ? (
-            <div className="space-y-4">
-              <div className="text-gray-300 whitespace-pre-wrap select-text markdown-body bg-[#161b22] p-3 rounded-lg border border-[#30363d]/80 shadow-md">
-                {aiResponse}
-              </div>
-
-              {/* Action: Copy generated code or auto insert into editor! */}
-              {aiMode === 'generate' && (
-                <button 
-                  onClick={() => handleInsertCode(aiResponse)}
-                  className="w-full flex items-center gap-2 justify-center py-2 bg-[#238636] hover:bg-[#2ea043] text-white text-xs font-bold rounded-lg cursor-pointer shadow-lg transition-transform active:scale-95"
-                >
-                  <FileCode className="h-4 w-4" />
-                  Insert Into Active Editor
-                </button>
-              )}
+            <div className="whitespace-pre-wrap rounded-lg border border-[#30363d] bg-[#161b22] p-3 text-gray-300">
+              {aiResponse}
             </div>
           ) : (
-            <div className="flex flex-col items-center justify-center py-12 text-center text-gray-500 space-y-4">
+            <div className="flex h-full flex-col items-center justify-center gap-3 text-center text-gray-500">
               <Sparkles className="h-10 w-10 text-gray-700" />
-              <p className="max-w-[200px]">
-                Ask me to write routers, design database mappings, explain Go modules, or mock test files. 
+
+              <p className="max-w-[220px]">
+                Ask questions about the active
+                workspace file.
               </p>
-              <div className="text-[10px] font-mono text-[#58a6ff] bg-[#1f6feb]/5 px-3 py-1.5 rounded-full border border-[#1f6feb]/15">
-                GEMINI LIVE CHAT READY
-              </div>
             </div>
           )}
         </div>
 
-        {/* Chat input box footer */}
-        <form 
-          onSubmit={(e) => {
-            e.preventDefault();
-            handleAiAction('chat');
-          }}
-          className="p-3 bg-[#161b22] border-t border-[#30363d] flex gap-2 items-center"
+        <form
+          onSubmit={handleAiSubmit}
+          className="flex items-center gap-2 border-t border-[#30363d] p-3"
         >
           <input
-            type="text"
             value={aiPrompt}
-            onChange={(e) => setAiPrompt(e.target.value)}
-            placeholder="Ask AI compiler assistant..."
-            className="flex-1 bg-[#0d1117] border border-[#30363d] rounded px-3 py-1.5 text-xs focus:outline-none focus:border-[#1f6feb] text-gray-200"
+            onChange={(event) =>
+              setAiPrompt(event.target.value)
+            }
+            placeholder="Ask the assistant..."
+            className="flex-1 rounded border border-[#30363d] bg-[#0d1117] px-3 py-2 text-xs text-gray-200 outline-none focus:border-[#1f6feb]"
           />
-          <button 
+
+          <button
             type="submit"
-            disabled={!aiPrompt.trim() || isAiLoading}
-            className="p-1.5 rounded bg-[#1f6feb] text-white hover:bg-[#388bfd] disabled:opacity-40 transition-colors cursor-pointer shrink-0"
+            disabled={
+              !aiPrompt.trim() || isAiLoading
+            }
+            className="rounded bg-[#1f6feb] p-2 text-white hover:bg-[#388bfd] disabled:opacity-40"
           >
             <Send className="h-3.5 w-3.5" />
           </button>
         </form>
-      </div>
+      </aside>
+    </div>
+  );
+}
 
+function PanelHeader({
+  title,
+}: {
+  title: string;
+}) {
+  return (
+    <div className="flex h-11 items-center border-b border-[#30363d] bg-[#0d1117] px-4 sticky-top">
+      <span className="font-mono text-xs font-bold uppercase tracking-widest text-gray-400">
+        {title}
+      </span>
     </div>
   );
 }
