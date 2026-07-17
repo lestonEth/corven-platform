@@ -14,6 +14,7 @@ import {
 import {
     useLocation,
     useNavigate,
+    useParams,
     useSearchParams,
 } from 'react-router-dom';
 
@@ -64,6 +65,10 @@ function NavigationButton({
 export default function Sidebar() {
     const navigate = useNavigate();
     const location = useLocation();
+    const { workspaceId } =
+        useParams<{
+            workspaceId: string;
+        }>();
 
     const [searchParams, setSearchParams] =
         useSearchParams();
@@ -75,15 +80,17 @@ export default function Sidebar() {
     const isRouteActive = (path: string) =>
         location.pathname === path;
 
-    const handleIdePanel = (panel: IdePanel) => {
-        if (location.pathname !== '/ide') {
-            navigate(`/ide?panel=${panel}`);
+    const handleIdePanel = (
+        panel: IdePanel,
+    ) => {
+        if (!workspaceId) {
+            navigate('/dashboard');
             return;
         }
 
-        setSearchParams({
-            panel,
-        });
+        navigate(
+            `/ide/${workspaceId}?panel=${panel}`,
+        );
     };
 
     return (

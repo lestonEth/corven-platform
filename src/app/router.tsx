@@ -37,6 +37,10 @@ export const router = createBrowserRouter([
                         path: '/ide',
                         element: <IdePage />,
                     },
+                    {
+                        path: '/ide/:workspaceId',
+                        element: <IdePage />,
+                    }
                     // {
                     //     path: '/nodes',
                     //     element: <NodesPage />,

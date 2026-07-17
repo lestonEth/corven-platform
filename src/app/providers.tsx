@@ -1,5 +1,8 @@
 // src/app/providers.tsx
-import { ReactNode } from 'react';
+import type { ReactNode } from 'react';
+import { QueryClientProvider } from '@tanstack/react-query';
+
+import { queryClient } from '../lib/query-client';
 import { AuthProvider } from '../features/auth/context/AuthContext';
 
 interface AppProvidersProps {
@@ -10,8 +13,11 @@ export default function AppProviders({
     children,
 }: AppProvidersProps) {
     return (
-        <AuthProvider>
-            {children}
-        </AuthProvider>
+        <QueryClientProvider client={queryClient}>
+            <AuthProvider>
+                {children}
+            </AuthProvider>
+
+        </QueryClientProvider>
     );
 }
