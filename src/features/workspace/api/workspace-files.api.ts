@@ -15,7 +15,7 @@ export const workspaceFilesApi = {
         workspaceId: string,
     ): Promise<WorkspaceEntry[]> {
         return apiClient<WorkspaceEntry[]>(
-            `/workspace/${workspaceId}/files`,
+            `/workspaces/${workspaceId}/files`,
         );
     },
 
@@ -28,7 +28,7 @@ export const workspaceFilesApi = {
         });
 
         return apiClient<WorkspaceFile>(
-            `/workspace/${workspaceId}/files/content?${params.toString()}`,
+            `/workspaces/${workspaceId}/files/content?${params.toString()}`,
         );
     },
 
@@ -37,7 +37,7 @@ export const workspaceFilesApi = {
         input: CreateFileInput,
     ): Promise<WorkspaceFile> {
         return apiClient<WorkspaceFile>(
-            `/workspace/${workspaceId}/files`,
+            `/workspaces/${workspaceId}/files`,
             {
                 method: 'POST',
                 body: JSON.stringify({
@@ -53,7 +53,7 @@ export const workspaceFilesApi = {
         input: UpdateFileInput,
     ): Promise<WorkspaceFile> {
         return apiClient<WorkspaceFile>(
-            `/workspace/${workspaceId}/files`,
+            `/workspaces/${workspaceId}/files`,
             {
                 method: 'PUT',
                 body: JSON.stringify(input),
@@ -73,7 +73,7 @@ export const workspaceFilesApi = {
         });
 
         return apiClient(
-            `/workspace/${workspaceId}/files?${params.toString()}`,
+            `/workspaces/${workspaceId}/files?${params.toString()}`,
             {
                 method: 'DELETE',
             },
@@ -85,7 +85,7 @@ export const workspaceFilesApi = {
         input: RenameFileInput,
     ) {
         return apiClient(
-            `/workspace/${workspaceId}/files/rename`,
+            `/workspaces/${workspaceId}/files/rename`,
             {
                 method: 'PUT',
                 body: JSON.stringify(input),
@@ -98,7 +98,7 @@ export const workspaceFilesApi = {
         input: CreateDirectoryInput,
     ): Promise<WorkspaceEntry> {
         return apiClient<WorkspaceEntry>(
-            `/workspace/${workspaceId}/directories`,
+            `/workspaces/${workspaceId}/directories`,
             {
                 method: 'POST',
                 body: JSON.stringify(input),

@@ -1,4 +1,5 @@
 // src/features/auth/context/AuthContext.tsx
+
 import {
     createContext,
     ReactNode,
@@ -9,19 +10,25 @@ import {
 } from 'react';
 
 import { authApi } from '../api/auth.api';
+
 import {
     AuthUser,
     LoginInput,
     RegisterInput,
+    WalletLoginInput,
 } from '../types/auth.types';
+
 import { tokenStorage } from '../../../lib/token-storage';
 
 export interface AuthContextValue {
     user: AuthUser | null;
     isAuthenticated: boolean;
     isInitializing: boolean;
+
     login: (input: LoginInput) => Promise<void>;
     register: (input: RegisterInput) => Promise<void>;
+    walletLogin: (input: WalletLoginInput) => Promise<void>;
+
     logout: () => void;
     refreshUser: () => Promise<void>;
 }
@@ -91,6 +98,17 @@ export function AuthProvider({
         [],
     );
 
+    const walletLogin = useCallback(
+        async (input: WalletLoginInput) => {
+            const response =
+                await authApi.walletLogin(input);
+
+            tokenStorage.set(response.accessToken);
+            setUser(response.user);
+        },
+        [],
+    );
+
     const logout = useCallback(() => {
         tokenStorage.remove();
         setUser(null);
@@ -103,6 +121,7 @@ export function AuthProvider({
             isInitializing,
             login,
             register,
+            walletLogin,
             logout,
             refreshUser,
         }),
@@ -111,14 +130,15 @@ export function AuthProvider({
             isInitializing,
             login,
             register,
+            walletLogin,
             logout,
             refreshUser,
         ],
     );
 
     return (
-        <AuthContext value={value}>
+        <AuthContext.Provider value={value}>
             {children}
-        </AuthContext>
+        </AuthContext.Provider>
     );
 }

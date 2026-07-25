@@ -8,7 +8,7 @@ import AuthPage from '../features/auth/pages/AuthPage';
 import HomePage from '../pages/HomePage';
 import DashboardPage from '../pages/DashboardPage';
 import IdePage from '../pages/IdePage';
-// import NodesPage from '../pages/NodesPage';
+import NodesPage from '../pages/NodePage';
 // import NotFoundPage from '../pages/NotFoundPage';
 
 export const router = createBrowserRouter([
@@ -40,11 +40,11 @@ export const router = createBrowserRouter([
                     {
                         path: '/ide/:workspaceId',
                         element: <IdePage />,
-                    }
-                    // {
-                    //     path: '/nodes',
-                    //     element: <NodesPage />,
-                    // },
+                    },
+                    {
+                        path: '/nodes',
+                        element: <NodesPage />,
+                    },
                 ],
             },
         ],

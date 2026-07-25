@@ -1,4 +1,5 @@
 // src/features/auth/pages/AuthPage.tsx
+
 import {
     Navigate,
     useLocation,
@@ -16,8 +17,7 @@ interface LocationState {
 
 export default function AuthPage() {
     const {
-        login,
-        register,
+        walletLogin,
         isAuthenticated,
         isInitializing,
     } = useAuth();
@@ -25,13 +25,18 @@ export default function AuthPage() {
     const navigate = useNavigate();
     const location = useLocation();
 
-    const state = location.state as LocationState | null;
+    const state =
+        location.state as LocationState | null;
 
     const destination =
         state?.from?.pathname || '/dashboard';
 
     if (isInitializing) {
-        return null;
+        return (
+            <div className="flex min-h-screen items-center justify-center bg-[#0d1117]">
+                <span className="h-6 w-6 animate-spin rounded-full border-2 border-white border-t-transparent" />
+            </div>
+        );
     }
 
     if (isAuthenticated) {
@@ -45,27 +50,7 @@ export default function AuthPage() {
 
     return (
         <AuthView
-            onLogin={async (email, password) => {
-                await login({
-                    email,
-                    password,
-                });
-
-                navigate(destination, {
-                    replace: true,
-                });
-            }}
-            onRegister={async (
-                name,
-                email,
-                password,
-            ) => {
-                await register({
-                    name,
-                    email,
-                    password,
-                });
-
+            onAuthenticated={() => {
                 navigate(destination, {
                     replace: true,
                 });

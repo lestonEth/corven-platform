@@ -68,7 +68,7 @@ export default function AppLayout() {
                 nodeStatus={nodeState.status}
                 onDeploy={() => undefined}
                 isDeploying={false}
-                user={user}
+                user={user as any}
                 onLogout={() => {
                     logout();
                     navigate('/auth', {
@@ -99,7 +99,7 @@ export default function AppLayout() {
                 <div className="flex items-center gap-4">
                     <span className="flex items-center gap-1.5 text-emerald-400">
                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                        Stable Fiber Sandbox
+                        Stable corven Sandbox
                     </span>
 
                     <span>|</span>

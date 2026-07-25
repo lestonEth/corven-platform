@@ -1,8 +1,23 @@
 // src/features/workspace/components/FileExplorerPanel.tsx
+import React from 'react';
+
 import {
     ChevronDown,
     ChevronRight,
+    File,
+    FileArchive,
+    FileAudio,
     FileCode,
+    FileCog,
+    FileDiff,
+    FileImage,
+    FileJson,
+    FileLock,
+    FileSpreadsheet,
+    FileText,
+    FileType,
+    FileVideo,
+    FileX,
     Folder,
     FolderPlus,
     Plus,
@@ -43,6 +58,220 @@ interface FileExplorerPanelProps {
     onDelete: (
         path: string,
     ) => Promise<void>;
+}
+
+// Helper function to get the appropriate icon based on file extension
+function getFileIcon(fileName: string) {
+    const extension = fileName.split('.').pop()?.toLowerCase() || '';
+
+    const extensionMap: Record<string, React.ElementType> = {
+        // JavaScript/TypeScript
+        'js': FileCode,
+        'jsx': FileCode,
+        'ts': FileType,
+        'tsx': FileType,
+        'mjs': FileCode,
+        'cjs': FileCode,
+        'cts': FileType,
+        'mts': FileType,
+
+        // JSON
+        'json': FileJson,
+        'jsonc': FileJson,
+        'json5': FileJson,
+
+        // Images
+        'png': FileImage,
+        'jpg': FileImage,
+        'jpeg': FileImage,
+        'gif': FileImage,
+        'svg': FileImage,
+        'webp': FileImage,
+        'ico': FileImage,
+        'bmp': FileImage,
+        'tiff': FileImage,
+
+        // Videos
+        'mp4': FileVideo,
+        'webm': FileVideo,
+        'avi': FileVideo,
+        'mov': FileVideo,
+        'mkv': FileVideo,
+        'flv': FileVideo,
+        'wmv': FileVideo,
+
+        // Audio
+        'mp3': FileAudio,
+        'wav': FileAudio,
+        'flac': FileAudio,
+        'aac': FileAudio,
+        'ogg': FileAudio,
+        'wma': FileAudio,
+
+        // Archives
+        'zip': FileArchive,
+        'rar': FileArchive,
+        '7z': FileArchive,
+        'tar': FileArchive,
+        'gz': FileArchive,
+        'bz2': FileArchive,
+        'xz': FileArchive,
+        'tgz': FileArchive,
+
+        // Spreadsheets
+        'csv': FileSpreadsheet,
+        'xls': FileSpreadsheet,
+        'xlsx': FileSpreadsheet,
+        'ods': FileSpreadsheet,
+
+        // Documents
+        'txt': FileText,
+        'log': FileText,
+        'rtf': FileText,
+        'pdf': FileText,
+        'doc': FileText,
+        'docx': FileText,
+
+        // Configuration
+        'env': FileCog,
+        'ini': FileCog,
+        'cfg': FileCog,
+        'conf': FileCog,
+        'yaml': FileCog,
+        'yml': FileCog,
+        'toml': FileCog,
+        'xml': FileCog,
+        'xsd': FileCog,
+        'xslt': FileCog,
+        'properties': FileCog,
+
+        // Python
+        'py': FileCode,
+        'ipynb': FileJson,
+
+        // Ruby
+        'rb': FileCode,
+        'erb': FileCode,
+        'rake': FileCode,
+        'gemspec': FileCode,
+
+        // PHP
+        'php': FileCode,
+        'phar': FileArchive,
+
+        // Java
+        'java': FileCode,
+        'jar': FileArchive,
+        'jsp': FileCode,
+
+        // C/C++
+        'c': FileCode,
+        'cpp': FileCode,
+        'cc': FileCode,
+        'cxx': FileCode,
+        'h': FileCode,
+        'hpp': FileCode,
+        'hh': FileCode,
+        'hxx': FileCode,
+
+        // C#
+        'cs': FileCode,
+        'csx': FileCode,
+
+        // Go
+        'go': FileCode,
+        'mod': FileCode,
+        'sum': FileCode,
+
+        // Rust
+        'rs': FileCode,
+
+        // Shell
+        'sh': FileCode,
+        'bash': FileCode,
+        'zsh': FileCode,
+        'fish': FileCode,
+        'ps1': FileCode,
+
+        // SQL
+        'sql': FileCode,
+        'sqlite': FileCode,
+
+        // CSS/HTML
+        'css': FileCode,
+        'scss': FileCode,
+        'sass': FileCode,
+        'less': FileCode,
+        'styl': FileCode,
+        'html': FileCode,
+        'htm': FileCode,
+        'xhtml': FileCode,
+        'vue': FileCode,
+        'svelte': FileCode,
+
+        // Docker
+        'dockerfile': FileCode,
+        'dockerignore': FileCode,
+
+        // Git
+        'gitignore': FileCode,
+        'gitattributes': FileCode,
+        'gitmodules': FileCode,
+
+        // Package managers
+        'lock': FileLock,
+        'npmrc': FileCog,
+        'yarnrc': FileCog,
+        'pnpm-lock': FileLock,
+
+        // GraphQL
+        'graphql': FileCode,
+        'gql': FileCode,
+
+        // Protocol Buffers
+        'proto': FileCode,
+
+        // Make
+        'makefile': FileCog,
+        'mk': FileCog,
+
+        // CMake
+        'cmake': FileCog,
+        'cmakelists': FileCog,
+
+        // Other
+        'patch': FileDiff,
+        'diff': FileDiff,
+        'bak': FileX,
+        'tmp': FileX,
+        'swp': FileX,
+    };
+
+    // Check if file has an extension
+    if (!extension) {
+        // For files without extension (like README, LICENSE, etc.)
+        const specialFiles: Record<string, React.ElementType> = {
+            'readme': FileText,
+            'license': FileText,
+            'changelog': FileText,
+            'contributing': FileText,
+            'makefile': FileCog,
+            'dockerfile': FileCode,
+            'gemfile': FileCode,
+            'rakefile': FileCode,
+            'cpanfile': FileCode,
+        };
+
+        const lowerFileName = fileName.toLowerCase();
+        for (const [key, icon] of Object.entries(specialFiles)) {
+            if (lowerFileName.includes(key)) {
+                return icon;
+            }
+        }
+        return File;
+    }
+
+    return extensionMap[extension] || File;
 }
 
 export function FileExplorerPanel({
@@ -135,8 +364,8 @@ export function FileExplorerPanel({
                     >
                         <RefreshCw
                             className={`h-3.5 w-3.5 ${isRefreshing
-                                    ? 'animate-spin'
-                                    : ''
+                                ? 'animate-spin'
+                                : ''
                                 }`}
                         />
                     </button>
@@ -189,6 +418,7 @@ export function FileExplorerPanel({
 }
 
 interface FileTreeItemProps {
+    key?: string;
     node: FileTreeNode;
     depth: number;
     activePath: string;
@@ -228,6 +458,9 @@ function FileTreeItem({
 
     const isDirectory =
         node.type === 'directory';
+
+    // Get the appropriate icon for files
+    const FileIcon = isDirectory ? Folder : getFileIcon(node.name);
 
     const createNestedPath = (
         name: string,
@@ -277,8 +510,8 @@ function FileTreeItem({
         <div>
             <div
                 className={`group flex items-center rounded text-xs ${activePath === node.path
-                        ? 'bg-[#1f6feb]/10 text-[#58a6ff]'
-                        : 'text-gray-400 hover:bg-gray-800/30 hover:text-gray-200'
+                    ? 'bg-[#1f6feb]/10 text-[#58a6ff]'
+                    : 'text-gray-400 hover:bg-gray-800/30 hover:text-gray-200'
                     }`}
                 style={{
                     paddingLeft: depth * 12,
@@ -311,7 +544,10 @@ function FileTreeItem({
                         <>
                             <span className="w-3.5 shrink-0" />
 
-                            <FileCode className="h-3.5 w-3.5 shrink-0" />
+                            <FileIcon className={`h-3.5 w-3.5 shrink-0 ${activePath === node.path
+                                ? 'text-[#58a6ff]'
+                                : 'text-gray-400'
+                                }`} />
                         </>
                     )}
 
@@ -428,6 +664,62 @@ function InlineCreateInput({
     const hasCommittedRef =
         useRef(false);
 
+    // Get the appropriate icon based on what's being typed
+    const getPreviewIcon = (fileName: string) => {
+        if (type === 'directory') {
+            return Folder;
+        }
+
+        const extension = fileName.split('.').pop()?.toLowerCase() || '';
+        const previewIcons: Record<string, React.ElementType> = {
+            'js': FileCode,
+            'jsx': FileCode,
+            'ts': FileType,
+            'tsx': FileType,
+            'json': FileJson,
+            'html': FileCode,
+            'css': FileCode,
+            'scss': FileCode,
+            'py': FileCode,
+            'rb': FileCode,
+            'php': FileCode,
+            'java': FileCode,
+            'go': FileCode,
+            'rs': FileCode,
+            'sh': FileCode,
+            'sql': FileCode,
+            'xml': FileCog,
+            'yaml': FileCog,
+            'yml': FileCog,
+            'toml': FileCog,
+            'env': FileCog,
+            'png': FileImage,
+            'jpg': FileImage,
+            'jpeg': FileImage,
+            'svg': FileImage,
+            'gif': FileImage,
+            'mp4': FileVideo,
+            'webm': FileVideo,
+            'mp3': FileAudio,
+            'wav': FileAudio,
+            'zip': FileArchive,
+            'rar': FileArchive,
+            'tar': FileArchive,
+            'gz': FileArchive,
+            'csv': FileSpreadsheet,
+            'xls': FileSpreadsheet,
+            'xlsx': FileSpreadsheet,
+            'txt': FileText,
+            'log': FileText,
+            'lock': FileLock,
+        };
+
+        const Icon = previewIcons[extension] || FileCode;
+        return Icon;
+    };
+
+    const PreviewIcon = getPreviewIcon(value);
+
     const commit = async () => {
         if (
             hasCommittedRef.current ||
@@ -511,7 +803,7 @@ function InlineCreateInput({
                 {type === 'directory' ? (
                     <Folder className="h-3.5 w-3.5 shrink-0 text-[#58a6ff]" />
                 ) : (
-                    <FileCode className="h-3.5 w-3.5 shrink-0 text-gray-400" />
+                    <PreviewIcon className="h-3.5 w-3.5 shrink-0 text-gray-400" />
                 )}
 
                 <input

@@ -1,5 +1,6 @@
-import { useState } from "react";
-import { Terminal, Settings, User, Search, Sparkles, LogOut, ChevronDown, Github } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Terminal, Settings, User, Search, Sparkles, LogOut, ChevronDown, Github, Wallet, CreditCard } from "lucide-react";
+import { ccc } from '@ckb-ccc/connector-react';
 
 interface HeaderProps {
   activeView: 'home' | 'dashboard' | 'ide' | 'nodes';
@@ -18,10 +19,89 @@ export default function Header({
   onDeploy,
   isDeploying,
   user,
-  onLogout
+  onLogout,
 }: HeaderProps) {
 
   const [showDropdown, setShowDropdown] = useState<boolean>(false);
+  const [showWalletDropdown, setShowWalletDropdown] = useState<boolean>(false);
+
+  // Use CCC hooks
+  const { open, close, isOpen } = ccc.useCcc();
+  const signer = ccc.useSigner();
+  const [walletAddress, setWalletAddress] = useState<string | null>(null);
+  const [isConnecting, setIsConnecting] = useState(false);
+  const [walletBalance, setWalletBalance] = useState("0.00");
+
+  // Load wallet address when signer changes
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadWalletAddress() {
+      if (!signer) {
+        setWalletAddress(null);
+        return;
+      }
+
+      try {
+        const address = await signer.getRecommendedAddress();
+        if (!cancelled) {
+          setWalletAddress(address);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          console.error('Failed to get wallet address:', error);
+          setWalletAddress(null);
+        }
+      }
+    }
+
+    void loadWalletAddress();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [signer]);
+
+  // Reset connecting state when wallet modal closes
+  useEffect(() => {
+    if (!isOpen && isConnecting) {
+      setIsConnecting(false);
+    }
+  }, [isOpen, isConnecting]);
+
+  // Format wallet address for display
+  const formatWalletAddress = (address: string) => {
+    if (!address) return "";
+    return `${address.slice(0, 6)}...${address.slice(-4)}`;
+  };
+
+  // Handle wallet connection
+  const handleConnectWallet = async () => {
+    if (isConnecting) return;
+
+    setIsConnecting(true);
+    try {
+      await open();
+      // The signer will be available after connection
+      // The useEffect above will handle updating the wallet address
+    } catch (error) {
+      console.error('Failed to connect wallet:', error);
+      setIsConnecting(false);
+    }
+  };
+
+  // Handle wallet disconnection
+  const handleDisconnectWallet = () => {
+    // CCC doesn't have a direct disconnect method, but we can close the modal
+    // and clear the local state
+    if (isOpen) {
+      close();
+    }
+    setWalletAddress(null);
+    setShowWalletDropdown(false);
+    // Note: The actual disconnection happens when the user disconnects from the wallet
+    // provider through the CCC modal
+  };
 
   return (
     <header className="bg-[#161b22] border-b border-[#30363d] flex justify-between items-center w-full px-6 h-14 z-50 fixed top-0 select-none">
@@ -34,7 +114,7 @@ export default function Header({
             <Terminal className="h-5 w-5" />
           </div>
           <span className="font-headline-sm text-lg font-black tracking-tight text-white bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent">
-            FiberDev <span className="text-[#58a6ff]">Studio</span>
+            Corven
           </span>
         </div>
 
@@ -42,8 +122,8 @@ export default function Header({
           <button
             onClick={() => setActiveView('dashboard')}
             className={`font-body-sm text-sm px-3 py-1.5 rounded transition-all ${activeView === 'dashboard'
-                ? 'text-[#58a6ff] bg-[#30363d]/50 font-semibold'
-                : 'text-gray-400 hover:text-white hover:bg-gray-800/30'
+              ? 'text-[#58a6ff] bg-[#30363d]/50 font-semibold'
+              : 'text-gray-400 hover:text-white hover:bg-gray-800/30'
               }`}
           >
             Dashboard
@@ -51,8 +131,8 @@ export default function Header({
           <button
             onClick={() => setActiveView('ide')}
             className={`font-body-sm text-sm px-3 py-1.5 rounded transition-all ${activeView === 'ide'
-                ? 'text-[#58a6ff] bg-[#30363d]/50 font-semibold'
-                : 'text-gray-400 hover:text-white hover:bg-gray-800/30'
+              ? 'text-[#58a6ff] bg-[#30363d]/50 font-semibold'
+              : 'text-gray-400 hover:text-white hover:bg-gray-800/30'
               }`}
           >
             Workspace IDE
@@ -60,8 +140,8 @@ export default function Header({
           <button
             onClick={() => setActiveView('nodes')}
             className={`font-body-sm text-sm px-3 py-1.5 rounded transition-all ${activeView === 'nodes'
-                ? 'text-[#58a6ff] bg-[#30363d]/50 font-semibold'
-                : 'text-gray-400 hover:text-white hover:bg-gray-800/30'
+              ? 'text-[#58a6ff] bg-[#30363d]/50 font-semibold'
+              : 'text-gray-400 hover:text-white hover:bg-gray-800/30'
               }`}
           >
             Node Manager
@@ -70,16 +150,143 @@ export default function Header({
       </div>
 
       <div className="flex items-center gap-4">
-        {/* Simple global status indicator */}
-        <div className="hidden lg:flex items-center gap-2 bg-[#0d1117] border border-[#30363d] px-3 py-1 rounded-full text-xs">
-          <span className={`w-2 h-2 rounded-full ${nodeStatus === 'Operational' ? 'bg-emerald-500 animate-pulse' :
-              nodeStatus === 'Restarting' ? 'bg-amber-500 animate-spin' :
-                nodeStatus === 'Resetting' ? 'bg-rose-500 animate-pulse' : 'bg-sky-400 animate-pulse'
-            }`} />
-          <span className="text-gray-400">Node status: <span className="text-white font-medium capitalize">{nodeStatus}</span></span>
+        {/* Wallet Connection */}
+        <div className="relative">
+          {walletAddress ? (
+            // Connected wallet
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setShowWalletDropdown(!showWalletDropdown)}
+                className="flex items-center gap-2 bg-[#0d1117] border border-[#30363d] hover:border-[#58a6ff] rounded-full px-3 py-1.5 transition-all group"
+              >
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                  <Wallet className="h-3.5 w-3.5 text-[#58a6ff]" />
+                  <span className="font-mono text-xs text-gray-300">
+                    {formatWalletAddress(walletAddress)}
+                  </span>
+                </div>
+                <div className="h-4 w-px bg-[#30363d]" />
+                <div className="flex items-center gap-1">
+                  <CreditCard className="h-3 w-3 text-emerald-400" />
+                  <span className="text-xs font-mono text-emerald-400 font-medium">
+                    ${walletBalance}
+                  </span>
+                </div>
+                <ChevronDown className="h-3 w-3 text-gray-500 group-hover:text-white transition-colors" />
+              </button>
+
+              {/* Wallet Dropdown */}
+              {showWalletDropdown && (
+                <div className="absolute right-0 mt-2 w-72 bg-[#161b22] border border-[#30363d] rounded-2xl shadow-2xl p-4 z-[999] animate-fade-in">
+                  {/* Wallet Header */}
+                  <div className="flex items-center gap-3 pb-3 border-b border-[#30363d]/50">
+                    <div className="bg-[#1f6feb]/10 p-2 rounded-full">
+                      <Wallet className="h-5 w-5 text-[#58a6ff]" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="font-mono text-xs text-white font-bold truncate">
+                        {walletAddress}
+                      </div>
+                      <div className="text-[10px] text-gray-500 mt-0.5">
+                        Connected • {new Date().toLocaleDateString()}
+                      </div>
+                    </div>
+                    <div className="bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
+                      <span className="text-[8px] font-mono text-emerald-400 font-bold">● LIVE</span>
+                    </div>
+                  </div>
+
+                  {/* Balance Info */}
+                  <div className="py-3 border-b border-[#30363d]/50">
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs text-gray-400">Total Balance</span>
+                      <span className="text-lg font-bold text-white">${walletBalance}</span>
+                    </div>
+                    <div className="flex justify-between items-center mt-1">
+                      <span className="text-xs text-gray-500">Network</span>
+                      <span className="text-xs font-mono text-[#58a6ff]">CKB Testnet</span>
+                    </div>
+                  </div>
+
+                  {/* Wallet Actions */}
+                  <div className="py-2 space-y-1">
+                    <button
+                      onClick={() => {
+                        // Open the CCC modal to change wallet
+                        setShowWalletDropdown(false);
+                        void open();
+                      }}
+                      className="w-full text-left text-xs text-gray-400 hover:text-white py-1.5 px-2 rounded-lg hover:bg-gray-800/40 transition-colors flex items-center gap-2"
+                    >
+                      <Wallet className="h-3.5 w-3.5" />
+                      Change Wallet
+                    </button>
+                    <button
+                      className="w-full text-left text-xs text-gray-400 hover:text-white py-1.5 px-2 rounded-lg hover:bg-gray-800/40 transition-colors flex items-center gap-2"
+                      onClick={() => {
+                        // Copy wallet address
+                        if (walletAddress) {
+                          navigator.clipboard.writeText(walletAddress);
+                          // You could add a toast notification here
+                        }
+                        setShowWalletDropdown(false);
+                      }}
+                    >
+                      <CreditCard className="h-3.5 w-3.5" />
+                      Copy Address
+                    </button>
+                  </div>
+
+                  {/* Disconnect */}
+                  <div className="pt-2 border-t border-[#30363d]/50">
+                    <button
+                      onClick={() => {
+                        setShowWalletDropdown(false);
+                        handleDisconnectWallet();
+                      }}
+                      className="w-full text-left text-xs text-rose-400 hover:text-rose-300 py-1.5 px-2 rounded-lg hover:bg-rose-500/10 transition-colors flex items-center gap-2"
+                    >
+                      <LogOut className="h-3.5 w-3.5" />
+                      Disconnect Wallet
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            // Connect wallet button
+            <button
+              onClick={handleConnectWallet}
+              disabled={isConnecting}
+              className={`flex items-center gap-2 bg-[#1f6feb] hover:bg-[#388bfd] text-white px-4 py-1.5 rounded-full text-xs font-semibold transition-all ${isConnecting ? 'opacity-50 cursor-not-allowed' : 'hover:scale-105'
+                }`}
+            >
+              {isConnecting ? (
+                <>
+                  <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  Connecting...
+                </>
+              ) : (
+                <>
+                  <Wallet className="h-3.5 w-3.5" />
+                  Connect Wallet
+                </>
+              )}
+            </button>
+          )}
         </div>
 
-        {/* Global workspace Search */}
+        {/* Node Status */}
+        <div className="hidden lg:flex items-center gap-2 bg-[#0d1117] border border-[#30363d] px-3 py-1 rounded-full text-xs">
+          <span className={`w-2 h-2 rounded-full ${nodeStatus === 'Operational' ? 'bg-emerald-500 animate-pulse' :
+            nodeStatus === 'Restarting' ? 'bg-amber-500 animate-spin' :
+              nodeStatus === 'Resetting' ? 'bg-rose-500 animate-pulse' : 'bg-sky-400 animate-pulse'
+            }`} />
+          <span className="text-gray-400">Node: <span className="text-white font-medium capitalize">{nodeStatus}</span></span>
+        </div>
+
+        {/* Search */}
         <div className="relative hidden sm:block">
           <Search className="absolute left-2.5 top-2 h-4 w-4 text-gray-500" />
           <input
@@ -94,7 +301,7 @@ export default function Header({
           />
         </div>
 
-        {/* Deploy Quick Action Button */}
+        {/* Deploy Button */}
         <button
           onClick={onDeploy}
           disabled={isDeploying || nodeStatus !== 'Operational'}
@@ -114,7 +321,7 @@ export default function Header({
           )}
         </button>
 
-        {/* Account Profile with dropdown */}
+        {/* User Profile */}
         <div className="flex gap-2 border-l border-[#30363d] pl-3 relative">
           {user ? (
             <div className="relative">
@@ -138,7 +345,7 @@ export default function Header({
                 <ChevronDown className="h-3.5 w-3.5 text-gray-500" />
               </button>
 
-              {/* Dropdown Menu */}
+              {/* User Dropdown */}
               {showDropdown && (
                 <div className="absolute right-0 mt-2.5 w-64 bg-[#161b22] border border-[#30363d] rounded-2xl shadow-2xl p-4 space-y-3 z-[999] animate-fade-in">
                   <div className="flex items-center gap-3 pb-3 border-b border-[#30363d]/50">

@@ -3,9 +3,11 @@
 export interface AuthUser {
     id: string;
     name: string;
-    email: string;
+    email: string | null;
+    walletAddress: string | null;
     role: 'USER' | 'ADMIN';
-    createdAt?: string;
+    authProvider: 'EMAIL' | 'CKB_WALLET';
+    createdAt: string;
 }
 
 export interface LoginInput {
@@ -24,7 +26,19 @@ export interface AuthResponse {
     user: AuthUser;
 }
 
-export interface VerifyTokenResponse {
-    valid: boolean;
-    user: AuthUser;
+export interface WalletChallengeInput {
+    walletAddress: string;
+}
+
+export interface WalletChallengeResponse {
+    challengeId: string;
+    nonce: string;
+    message: string;
+    expiresAt: string;
+}
+
+export interface WalletLoginInput {
+    walletAddress: string;
+    challengeId: string;
+    signature: unknown;
 }

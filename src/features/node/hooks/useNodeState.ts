@@ -24,6 +24,12 @@ const initialNodeState: NodeState = {
     logs: [],
 };
 
+interface NodeActionResponse {
+    success?: boolean;
+    message?: string;
+    nodeState?: NodeState;
+}
+
 export function useNodeState() {
     const [nodeState, setNodeState] =
         useState<NodeState>(initialNodeState);
@@ -31,30 +37,187 @@ export function useNodeState() {
     const [isLoading, setIsLoading] =
         useState(true);
 
-    const fetchNodeState = useCallback(async () => {
-        try {
-            // This endpoint can be changed when the real
-            // node-service API is implemented.
-            const response = await fetch('/api/node');
+    const [error, setError] =
+        useState<string | null>(null);
+
+    const request = useCallback(
+        async <T,>(
+            url: string,
+            options?: RequestInit,
+        ): Promise<T> => {
+            const response = await fetch(url, {
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...options?.headers,
+                },
+                ...options,
+            });
 
             if (!response.ok) {
-                return;
+                const data = await response
+                    .json()
+                    .catch(() => null);
+
+                throw new Error(
+                    data?.message ??
+                    `Request failed with status ${response.status}`,
+                );
             }
 
-            const data = await response.json();
+            return response.json();
+        },
+        [],
+    );
+
+    const fetchNodeState = useCallback(async () => {
+        try {
+            setError(null);
+
+            const data = await request<NodeState>(
+                '/api/node',
+            );
 
             if (data?.status) {
                 setNodeState(data);
             }
-        } catch (error) {
+        } catch (requestError) {
+            const message =
+                requestError instanceof Error
+                    ? requestError.message
+                    : 'Failed to fetch node state';
+
+            setError(message);
+
             console.error(
                 'Failed to fetch node state:',
-                error,
+                requestError,
             );
         } finally {
             setIsLoading(false);
         }
-    }, []);
+    }, [request]);
+
+    const restartNode = useCallback(async () => {
+        setNodeState((current) => ({
+            ...current,
+            status: 'Restarting',
+        }));
+
+        try {
+            setError(null);
+
+            const result =
+                await request<NodeActionResponse>(
+                    '/api/node/restart',
+                    {
+                        method: 'POST',
+                    },
+                );
+
+            if (result.nodeState) {
+                setNodeState(result.nodeState);
+            } else {
+                await fetchNodeState();
+            }
+        } catch (requestError) {
+            setNodeState((current) => ({
+                ...current,
+                status: 'Operational',
+            }));
+
+            throw requestError;
+        }
+    }, [fetchNodeState, request]);
+
+    const resetNode = useCallback(async () => {
+        try {
+            setError(null);
+
+            const result =
+                await request<NodeActionResponse>(
+                    '/api/node/reset',
+                    {
+                        method: 'POST',
+                    },
+                );
+
+            if (result.nodeState) {
+                setNodeState(result.nodeState);
+            } else {
+                await fetchNodeState();
+            }
+        } catch (requestError) {
+            const message =
+                requestError instanceof Error
+                    ? requestError.message
+                    : 'Failed to reset node';
+
+            setError(message);
+            throw requestError;
+        }
+    }, [fetchNodeState, request]);
+
+    const connectPeer = useCallback(async () => {
+        try {
+            setError(null);
+
+            const result =
+                await request<NodeActionResponse>(
+                    '/api/node/peers',
+                    {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            address: null,
+                        }),
+                    },
+                );
+
+            if (result.nodeState) {
+                setNodeState(result.nodeState);
+            } else {
+                await fetchNodeState();
+            }
+        } catch (requestError) {
+            const message =
+                requestError instanceof Error
+                    ? requestError.message
+                    : 'Failed to connect peer';
+
+            setError(message);
+            throw requestError;
+        }
+    }, [fetchNodeState, request]);
+
+    const disconnectPeer = useCallback(
+        async (peerId: string) => {
+            try {
+                setError(null);
+
+                await request<NodeActionResponse>(
+                    `/api/node/peers/${encodeURIComponent(peerId)}`,
+                    {
+                        method: 'DELETE',
+                    },
+                );
+
+                setNodeState((current) => ({
+                    ...current,
+                    peers: current.peers.filter(
+                        (peer) => peer.id !== peerId,
+                    ),
+                }));
+            } catch (requestError) {
+                const message =
+                    requestError instanceof Error
+                        ? requestError.message
+                        : 'Failed to disconnect peer';
+
+                setError(message);
+                throw requestError;
+            }
+        },
+        [request],
+    );
 
     useEffect(() => {
         void fetchNodeState();
@@ -71,6 +234,11 @@ export function useNodeState() {
     return {
         nodeState,
         isLoading,
+        error,
         refreshNodeState: fetchNodeState,
+        restartNode,
+        resetNode,
+        connectPeer,
+        disconnectPeer,
     };
 }

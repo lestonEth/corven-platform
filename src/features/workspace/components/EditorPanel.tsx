@@ -1,13 +1,28 @@
 // src/features/workspace/components/EditorPanel.tsx
+import { useMemo } from 'react';
 import {
     Check,
     FileCode,
     Save,
 } from 'lucide-react';
+import CodeMirror, {
+    type ReactCodeMirrorRef,
+} from '@uiw/react-codemirror';
+import { githubDark } from '@uiw/codemirror-theme-github';
+import { EditorView, keymap } from '@codemirror/view';
+import { Prec } from '@codemirror/state';
+import { indentUnit } from '@codemirror/language';
+import { indentWithTab } from '@codemirror/commands';
+import { lintGutter } from '@codemirror/lint';
 
 import type {
     WorkspaceFile,
 } from '../types/workspace.types';
+import {
+    getLanguageExtension,
+    getIndentSize,
+} from '../utils/getLanguageExtension';
+import { syntaxErrorLinter } from '../utils/syntaxErrorLinter';
 
 interface EditorPanelProps {
     file: WorkspaceFile | null;
@@ -20,6 +35,36 @@ interface EditorPanelProps {
     onSave: () => Promise<void>;
 }
 
+// Tweaks the bundled github-dark theme so it matches this app's palette
+// (#0d1117 background, #30363d borders) instead of GitHub's own tones.
+const editorTheme = EditorView.theme({
+    '&': {
+        height: '100%',
+        backgroundColor: '#0d1117',
+        fontSize: '12px',
+    },
+    '.cm-scroller': {
+        fontFamily:
+            'ui-monospace, SFMono-Regular, Menlo, monospace',
+        lineHeight: '1.6',
+    },
+    '.cm-gutters': {
+        backgroundColor: '#0d1117',
+        borderRight: '1px solid rgb(31 41 55 / 0.5)',
+        color: '#6b7280',
+    },
+    '.cm-activeLine': {
+        backgroundColor: 'rgba(110, 118, 129, 0.08)',
+    },
+    '.cm-activeLineGutter': {
+        backgroundColor: 'transparent',
+        color: '#9ca3af',
+    },
+    '&.cm-focused': {
+        outline: 'none',
+    },
+});
+
 export function EditorPanel({
     file,
     content,
@@ -29,6 +74,48 @@ export function EditorPanel({
     onChange,
     onSave,
 }: EditorPanelProps) {
+    // Recompute the language extension only when the open file changes,
+    // not on every keystroke.
+    const languageExtension = useMemo(
+        () => getLanguageExtension(file?.name ?? ''),
+        [file?.name],
+    );
+
+    const indentSize = useMemo(
+        () => getIndentSize(file?.name ?? ''),
+        [file?.name],
+    );
+
+    const extensions = useMemo(() => {
+        const base = [
+            editorTheme,
+            indentUnit.of(' '.repeat(indentSize)),
+            // Tab/Shift-Tab indent or dedent the current line/selection
+            // instead of moving focus off the editor.
+            Prec.highest(keymap.of([indentWithTab])),
+            // High precedence so Mod-s is caught before the browser's
+            // "Save Page" shortcut.
+            Prec.highest(
+                keymap.of([
+                    {
+                        key: 'Mod-s',
+                        run: () => {
+                            void onSave();
+                            return true;
+                        },
+                    },
+                ]),
+            ),
+            lintGutter(),
+            syntaxErrorLinter,
+        ];
+
+        return languageExtension
+            ? [...base, languageExtension]
+            : base;
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [languageExtension, indentSize]);
+
     if (isLoading) {
         return (
             <div className="flex flex-1 items-center justify-center text-sm text-gray-500">
@@ -87,24 +174,23 @@ export function EditorPanel({
                 </button>
             </div>
 
-            <div className="flex min-h-0 flex-1">
-                <div className="w-12 border-r border-gray-800/50 pt-4 pr-3 text-right font-mono text-[11px] leading-[1.6] text-gray-600">
-                    {content
-                        .split('\n')
-                        .map((_, index) => (
-                            <div key={index}>
-                                {index + 1}
-                            </div>
-                        ))}
-                </div>
-
-                <textarea
+            <div className="min-h-0 flex-1 overflow-hidden">
+                <CodeMirror
                     value={content}
-                    onChange={(event) =>
-                        onChange(event.target.value)
-                    }
-                    spellCheck={false}
-                    className="h-full flex-1 resize-none bg-transparent p-4 font-mono text-xs leading-[1.6] text-gray-300 outline-none"
+                    onChange={onChange}
+                    extensions={extensions}
+                    theme={githubDark}
+                    height="100%"
+                    basicSetup={{
+                        lineNumbers: true,
+                        foldGutter: true,
+                        highlightActiveLine: true,
+                        highlightActiveLineGutter: true,
+                        autocompletion: true,
+                        bracketMatching: true,
+                        closeBrackets: true,
+                        indentOnInput: true,
+                    }}
                 />
             </div>
         </section>

@@ -12,7 +12,7 @@ export interface CreateWorkspaceInput {
 export const workspaceApi = {
     list(): Promise<Workspace[]> {
         return apiClient<Workspace[]>(
-            '/workspace',
+            '/workspaces',
         );
     },
 
@@ -20,7 +20,7 @@ export const workspaceApi = {
         workspaceId: string,
     ): Promise<Workspace> {
         return apiClient<Workspace>(
-            `/workspace/${workspaceId}`,
+            `/workspaces/${workspaceId}`,
         );
     },
 
@@ -28,7 +28,7 @@ export const workspaceApi = {
         input: CreateWorkspaceInput,
     ): Promise<Workspace> {
         return apiClient<Workspace>(
-            '/workspace',
+            '/workspaces',
             {
                 method: 'POST',
                 body: JSON.stringify(input),
@@ -38,7 +38,7 @@ export const workspaceApi = {
 
     start(workspaceId: string) {
         return apiClient(
-            `/workspace/${workspaceId}/start`,
+            `/workspaces/${workspaceId}/start`,
             {
                 method: 'POST',
             },
@@ -47,7 +47,7 @@ export const workspaceApi = {
 
     stop(workspaceId: string) {
         return apiClient(
-            `/workspace/${workspaceId}/stop`,
+            `/workspaces/${workspaceId}/stop`,
             {
                 method: 'POST',
             },
@@ -56,13 +56,13 @@ export const workspaceApi = {
 
     status(workspaceId: string) {
         return apiClient(
-            `/workspace/${workspaceId}/status`,
+            `/workspaces/${workspaceId}/status`,
         );
     },
 
     remove(workspaceId: string) {
         return apiClient(
-            `/workspace/${workspaceId}`,
+            `/workspaces/${workspaceId}`,
             {
                 method: 'DELETE',
             },

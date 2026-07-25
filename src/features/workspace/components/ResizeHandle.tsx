@@ -1,0 +1,55 @@
+'use client';
+import React from 'react'
+
+interface ResizeHandleProps {
+    axis: 'horizontal' | 'vertical';
+    onPointerDown: (e: React.PointerEvent) => void;
+    isDragging: boolean;
+}
+
+/**
+ * Thin invisible hit-area with a 1px visible border, matching the
+ * "grab the border" affordance of VS Code / most IDEs. The hit area is
+ * wider than the visible line so it's actually easy to grab.
+ */
+export function ResizeHandle({
+    axis,
+    onPointerDown,
+    isDragging,
+}: ResizeHandleProps) {
+    const isHorizontal = axis === 'horizontal';
+
+    return (
+        <div
+            role="separator"
+            aria-orientation={isHorizontal ? 'vertical' : 'horizontal'}
+            onPointerDown={onPointerDown}
+            className={
+                isHorizontal
+                    ? 'group relative w-0 shrink-0 cursor-col-resize'
+                    : 'group relative h-0 shrink-0 cursor-row-resize'
+            }
+            style={{ zIndex: 20 }}
+        >
+            {/* wide invisible hit area */}
+            <div
+                className={
+                    isHorizontal
+                        ? '-translate-x-1/2 absolute top-0 h-full w-3'
+                        : '-translate-y-1/2 absolute left-0 h-3 w-full'
+                }
+            />
+            {/* visible line, highlights on hover/drag */}
+            <div
+                className={
+                    (isHorizontal
+                        ? '-translate-x-1/2 absolute top-0 h-full w-px '
+                        : '-translate-y-1/2 absolute left-0 h-px w-full ') +
+                    (isDragging
+                        ? 'bg-blue-500'
+                        : 'bg-[#30363d] group-hover:bg-blue-500/70')
+                }
+            />
+        </div>
+    );
+}

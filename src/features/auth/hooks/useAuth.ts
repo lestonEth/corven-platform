@@ -1,5 +1,7 @@
-// src/features/auth/hooks/useAuth.ts
+// src/features/auth/hooks/use-auth.ts
+
 import { useContext } from 'react';
+
 import {
     AuthContext,
     AuthContextValue,
