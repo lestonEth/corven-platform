@@ -144,9 +144,12 @@ export function useWorkspaceTests(workspaceId: string): UseWorkspaceTestsResult 
                     const projectList = ['.', ...data.projects];
                     setProjects(projectList);
                     // If current projectPath is not in the list, reset to '.'
-                    if (projectPath !== '.' && !data.projects.includes(projectPath)) {
-                        setProjectPath('.');
-                    }
+                    setProjectPath((current) => {
+                        if (current !== '.' && !data.projects.includes(current)) {
+                            return '.';
+                        }
+                        return current;
+                    });
                 } else {
                     console.log('[Socket] No projects found, using default');
                     setProjects(['.']);
@@ -278,11 +281,13 @@ export function useWorkspaceTests(workspaceId: string): UseWorkspaceTestsResult 
         }
         console.log(`[Tests] Running tests for workspace ${workspaceId} at path ${projectPath}`);
         outputRef.current = '';
-        setRun({ ...EMPTY_RUN, status: 'queued' });
+        const runId = crypto.randomUUID();
+        setRun({ ...EMPTY_RUN, status: 'queued', runId });
         socketRef.current.emit('test:run', {
             workspaceId,
             command: 'make test',
             cwd: projectPath,
+            runId,
         });
     }, [workspaceId, projectPath, isAuthenticated]);
 

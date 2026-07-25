@@ -147,9 +147,12 @@ export function useWorkspaceBuild(workspaceId: string): UseWorkspaceBuildResult 
                     const projectList = ['.', ...data.projects];
                     setProjects(projectList);
                     // If current projectPath is not in the list, reset to '.'
-                    if (projectPath !== '.' && !data.projects.includes(projectPath)) {
-                        setProjectPath('.');
-                    }
+                    setProjectPath((current) => {
+                        if (current !== '.' && !data.projects.includes(current)) {
+                            return '.';
+                        }
+                        return current;
+                    });
                 } else {
                     console.log('[Build] No projects found, using default');
                     setProjects(['.']);
@@ -316,7 +319,7 @@ export function useWorkspaceBuild(workspaceId: string): UseWorkspaceBuildResult 
             socket.disconnect();
             socketRef.current = null;
         };
-    }, [workspaceId, projectPath]);
+    }, [workspaceId]);
 
     const refreshProjects = useCallback(() => {
         if (!socketRef.current?.connected) {
@@ -370,10 +373,14 @@ export function useWorkspaceBuild(workspaceId: string): UseWorkspaceBuildResult 
             projectPath: projectPath,
         };
 
+        const buildId = crypto.randomUUID();
+        buildIdRef.current = buildId;
+
         socketRef.current.emit('build:start', {
             workspaceId,
             target: buildTarget,
             cwd: projectPathToUse || undefined,
+            buildId,
         });
     }, [workspaceId, buildTarget, projectPath, isAuthenticated, status]);
 
