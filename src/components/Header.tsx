@@ -21,7 +21,7 @@ function CorvenLogo({
   return (
     <div className="flex flex-col items-center">
       <img
-        src="/assets/corven-icon-3.png"
+        src="https://res.cloudinary.com/dswyz4vpp/image/upload/v1785082590/ChatGPT_Image_Jul_26__2026__01_05_52_PM-removebg-preview_wua44l.png"
         alt="Corven IDE logo"
         width={size}
         height={size}

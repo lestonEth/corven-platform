@@ -100,7 +100,7 @@ function CorvenLogo({
     return (
         <div className="flex flex-col items-center">
             <img
-                src="/assets/corven-icon.png"
+                src="https://res.cloudinary.com/dswyz4vpp/image/upload/v1785082591/corven-icon-Photoroom_c6igxf.png"
                 alt="Corven IDE logo"
                 width={size}
                 height={size}
