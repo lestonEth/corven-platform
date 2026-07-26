@@ -10,6 +10,7 @@ import {
     Send,
     MessageSquare,
     Clock,
+    PanelRightClose,
 } from 'lucide-react';
 
 interface Message {
@@ -27,6 +28,10 @@ interface AIModel {
     description: string;
     available: boolean;
     comingSoon?: boolean;
+}
+
+interface AIPanelProps {
+    onCollapse?: () => void;
 }
 
 const AVAILABLE_MODELS: AIModel[] = [
@@ -86,7 +91,7 @@ const AVAILABLE_MODELS: AIModel[] = [
     },
 ];
 
-export function AIPanel() {
+export function AIPanel({ onCollapse }: AIPanelProps) {
     const [selectedModel, setSelectedModel] = useState<string>(AVAILABLE_MODELS[0].id);
     const [isModelDropdownOpen, setIsModelDropdownOpen] = useState(false);
     const [messages, setMessages] = useState<Message[]>([
@@ -143,63 +148,74 @@ export function AIPanel() {
                         <span className="text-sm font-semibold text-gray-200">
                             AI
                         </span>
-
                     </div>
-                    <div className="relative">
-                        <button
-                            type="button"
-                            onClick={() => setIsModelDropdownOpen(!isModelDropdownOpen)}
-                            className="flex items-center gap-2 rounded-md border border-[#30363d] bg-[#0d1117] px-3 py-1.5 text-xs text-gray-300 transition hover:border-[#58a6ff] hover:bg-[#1c2333]"
-                        >
-                            {selectedModelData?.icon}
-                            <span>{selectedModelData?.name}</span>
-                            <ChevronDown className="h-3 w-3" />
-                        </button>
+                    <div className="flex items-center gap-2">
+                        <div className="relative">
+                            <button
+                                type="button"
+                                onClick={() => setIsModelDropdownOpen(!isModelDropdownOpen)}
+                                className="flex items-center gap-2 rounded-md border border-[#30363d] bg-[#0d1117] px-3 py-1.5 text-xs text-gray-300 transition hover:border-[#58a6ff] hover:bg-[#1c2333]"
+                            >
+                                {selectedModelData?.icon}
+                                <span>{selectedModelData?.name}</span>
+                                <ChevronDown className="h-3 w-3" />
+                            </button>
 
-                        {isModelDropdownOpen && (
-                            <div className="absolute right-0 top-full z-50 mt-1 w-64 rounded-md border border-[#30363d] bg-[#0d1117] shadow-xl">
-                                <div className="max-h-80 overflow-y-auto p-1">
-                                    {AVAILABLE_MODELS.map((model) => (
-                                        <button
-                                            key={model.id}
-                                            type="button"
-                                            onClick={() => {
-                                                setSelectedModel(model.id);
-                                                setIsModelDropdownOpen(false);
-                                            }}
-                                            className={`flex w-full items-start gap-3 rounded-md px-3 py-2 text-left transition ${selectedModel === model.id
-                                                ? 'bg-[#1c2333]'
-                                                : 'hover:bg-[#161b22]'
-                                                }`}
-                                        >
-                                            <div className="mt-0.5 text-gray-400">
-                                                {model.icon}
-                                            </div>
-                                            <div className="flex-1 min-w-0">
-                                                <div className="flex items-center gap-2">
-                                                    <span className="text-xs font-medium text-gray-200">
-                                                        {model.name}
-                                                    </span>
-                                                    {model.comingSoon && (
-                                                        <span className="rounded-full bg-yellow-500/10 px-1.5 py-0.5 text-[8px] font-medium text-yellow-500">
-                                                            Soon
+                            {isModelDropdownOpen && (
+                                <div className="absolute right-0 top-full z-50 mt-1 w-64 rounded-md border border-[#30363d] bg-[#0d1117] shadow-xl">
+                                    <div className="max-h-80 overflow-y-auto p-1">
+                                        {AVAILABLE_MODELS.map((model) => (
+                                            <button
+                                                key={model.id}
+                                                type="button"
+                                                onClick={() => {
+                                                    setSelectedModel(model.id);
+                                                    setIsModelDropdownOpen(false);
+                                                }}
+                                                className={`flex w-full items-start gap-3 rounded-md px-3 py-2 text-left transition ${selectedModel === model.id
+                                                    ? 'bg-[#1c2333]'
+                                                    : 'hover:bg-[#161b22]'
+                                                    }`}
+                                            >
+                                                <div className="mt-0.5 text-gray-400">
+                                                    {model.icon}
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="text-xs font-medium text-gray-200">
+                                                            {model.name}
                                                         </span>
-                                                    )}
+                                                        {model.comingSoon && (
+                                                            <span className="rounded-full bg-yellow-500/10 px-1.5 py-0.5 text-[8px] font-medium text-yellow-500">
+                                                                Soon
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="text-[10px] text-gray-500">
+                                                            {model.provider}
+                                                        </span>
+                                                        <span className="text-[10px] text-gray-600">•</span>
+                                                        <span className="text-[10px] text-gray-500">
+                                                            {model.description}
+                                                        </span>
+                                                    </div>
                                                 </div>
-                                                <div className="flex items-center gap-2">
-                                                    <span className="text-[10px] text-gray-500">
-                                                        {model.provider}
-                                                    </span>
-                                                    <span className="text-[10px] text-gray-600">•</span>
-                                                    <span className="text-[10px] text-gray-500">
-                                                        {model.description}
-                                                    </span>
-                                                </div>
-                                            </div>
-                                        </button>
-                                    ))}
+                                            </button>
+                                        ))}
+                                    </div>
                                 </div>
-                            </div>
+                            )}
+                        </div>
+                        {onCollapse && (
+                            <button
+                                type="button"
+                                onClick={onCollapse}
+                                className="rounded p-1 text-gray-500 transition hover:bg-[#21262d] hover:text-gray-200"
+                                title="Collapse AI panel"
+                            >
+                                <PanelRightClose className="h-4 w-4" />
+                            </button>
                         )}
                     </div>
                 </div>

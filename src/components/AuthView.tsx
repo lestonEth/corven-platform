@@ -1,21 +1,19 @@
 'use client';
 
 import React, {
-  CSSProperties,
-  useCallback,
-  useEffect,
-  useState,
+    CSSProperties,
+    useCallback,
+    useEffect,
+    useState,
 } from 'react';
 
 import {
-  AlertCircle,
-  CheckCircle,
-  Copy,
-  LogIn,
-  LogOut,
-  Wallet,
-  User,
-  Loader2,
+    AlertCircle,
+    CheckCircle,
+    Copy,
+    Loader2,
+    LogOut,
+    Wallet,
 } from 'lucide-react';
 
 import { ccc } from '@ckb-ccc/connector-react';
@@ -24,367 +22,527 @@ import { authApi } from '../features/auth/api/auth.api';
 import { useAuth } from '../features/auth/hooks/useAuth';
 
 interface AuthViewProps {
-  onAuthenticated?: () => void;
+    onAuthenticated?: () => void;
 }
 
 const connectorStyles = {
-  '--background': '#121417',
-  '--divider': 'rgba(231, 228, 220, 0.08)',
-  '--btn-primary': '#3E63DD',
-  '--btn-primary-hover': '#527AF0',
-  '--btn-secondary': '#1B1E23',
-  '--btn-secondary-hover': '#262A30',
-  '--icon-primary': '#ffffff',
-  '--icon-secondary': 'rgba(231, 228, 220, 0.6)',
-  '--tip-color': '#8A8F98',
-  color: '#F5F3EE',
+    '--background': '#121417',
+    '--divider': 'rgba(231, 228, 220, 0.08)',
+    '--btn-primary': '#3E63DD',
+    '--btn-primary-hover': '#527AF0',
+    '--btn-secondary': '#1B1E23',
+    '--btn-secondary-hover': '#262A30',
+    '--icon-primary': '#ffffff',
+    '--icon-secondary': 'rgba(231, 228, 220, 0.6)',
+    '--tip-color': '#8A8F98',
+    color: '#F5F3EE',
 } as CSSProperties;
 
-function shortenAddress(address: string): string {
-  if (address.length <= 20) {
-    return address;
-  }
+function shortenAddress(address?: string): string {
+    if (!address) {
+        return '';
+    }
 
-  return `${address.slice(0, 10)}...${address.slice(-8)}`;
+    if (address.length <= 20) {
+        return address;
+    }
+
+    return `${address.slice(0, 10)}...${address.slice(-8)}`;
 }
 
-// shared brand font-loading + grid backdrop, kept local so this file drops in standalone
 function BrandStyles() {
-  return (
-    <style>{`
+    return (
+        <style>{`
       @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
-      .cv-display { font-family: 'Space Grotesk', ui-sans-serif, system-ui, sans-serif; }
-      .cv-mono { font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace; }
+
+      .cv-display {
+        font-family: 'Space Grotesk', ui-sans-serif, system-ui, sans-serif;
+      }
+
+      .cv-mono {
+        font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+      }
+
       .cv-grid-bg {
         background-image:
-          linear-gradient(to right, rgba(231,228,220,0.045) 1px, transparent 1px),
-          linear-gradient(to bottom, rgba(231,228,220,0.045) 1px, transparent 1px);
+          linear-gradient(
+            to right,
+            rgba(231, 228, 220, 0.045) 1px,
+            transparent 1px
+          ),
+          linear-gradient(
+            to bottom,
+            rgba(231, 228, 220, 0.045) 1px,
+            transparent 1px
+          );
+
         background-size: 42px 42px;
       }
+
+      .cv-logo-glow {
+        filter:
+          drop-shadow(0 0 12px rgba(139, 92, 246, 0.28))
+          drop-shadow(0 0 24px rgba(59, 130, 246, 0.2));
+      }
     `}</style>
-  );
+    );
+}
+
+interface CorvenLogoProps {
+    size?: number;
+    showName?: boolean;
+}
+
+function CorvenLogo({
+    size = 88,
+    showName = true,
+}: CorvenLogoProps) {
+    return (
+        <div className="flex flex-col items-center">
+            <img
+                src="/assets/corven-icon.png"
+                alt="Corven IDE logo"
+                width={size}
+                height={size}
+                className="cv-logo-glow object-contain"
+            />
+
+            {showName && (
+                <div className="mt-4">
+                    <h2 className="cv-display text-2xl font-bold tracking-[0.18em] text-[#F5F3EE]">
+                        CORVEN
+                    </h2>
+
+                    <p className="mt-1 cv-mono text-[10px] tracking-[0.16em] text-[#5C6169]">
+                        CKB CLOUD IDE
+                    </p>
+                </div>
+            )}
+        </div>
+    );
 }
 
 function WalletAuthContent({
-  onAuthenticated,
+    onAuthenticated,
 }: AuthViewProps) {
-  const { open, close, wallet, isOpen } = ccc.useCcc();
-  const signer = ccc.useSigner()
-  const { user, isAuthenticated, walletLogin, logout } = useAuth();
+    const {
+        open,
+        close,
+        isOpen,
+    } = ccc.useCcc();
 
-  const [walletAddress, setWalletAddress] = useState('');
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
-  const [isAuthenticating, setIsAuthenticating] = useState(false);
-  const [isCopying, setIsCopying] = useState(false);
-  const [isConnecting, setIsConnecting] = useState(false);
+    const signer = ccc.useSigner();
 
-  // Load wallet address when signer changes
-  useEffect(() => {
-    let cancelled = false;
+    const {
+        user,
+        isAuthenticated,
+        walletLogin,
+        logout,
+    } = useAuth();
 
-    async function loadWalletAddress() {
-      if (!signer) {
-        setWalletAddress('');
-        return;
-      }
+    const [walletAddress, setWalletAddress] = useState('');
+    const [error, setError] = useState('');
+    const [success, setSuccess] = useState('');
+    const [isAuthenticating, setIsAuthenticating] = useState(false);
+    const [isCopying, setIsCopying] = useState(false);
+    const [isConnecting, setIsConnecting] = useState(false);
 
-      try {
-        const address = await signer.getRecommendedAddress();
-        if (!cancelled) {
-          setWalletAddress(address);
+    useEffect(() => {
+        let cancelled = false;
+
+        async function loadWalletAddress() {
+            if (!signer) {
+                setWalletAddress('');
+                return;
+            }
+
+            try {
+                const address = await signer.getRecommendedAddress();
+
+                if (!cancelled) {
+                    setWalletAddress(address);
+                }
+            } catch (caughtError) {
+                if (!cancelled) {
+                    const message =
+                        caughtError instanceof Error
+                            ? caughtError.message
+                            : 'Unable to read the wallet address.';
+
+                    setError(message);
+                    setWalletAddress('');
+                }
+            }
         }
-      } catch (caughtError) {
-        if (!cancelled) {
-          const message = caughtError instanceof Error
-            ? caughtError.message
-            : 'Unable to read the wallet address.';
-          setError(message);
-          setWalletAddress('');
+
+        void loadWalletAddress();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [signer]);
+
+    useEffect(() => {
+        if (!isOpen && isConnecting) {
+            setIsConnecting(false);
         }
-      }
-    }
+    }, [isOpen, isConnecting]);
 
-    void loadWalletAddress();
+    const handleConnectWallet = useCallback(async () => {
+        setError('');
+        setSuccess('');
+        setIsConnecting(true);
 
-    return () => {
-      cancelled = true;
+        try {
+            await open();
+        } catch (caughtError) {
+            const message =
+                caughtError instanceof Error
+                    ? caughtError.message
+                    : 'Failed to connect wallet.';
+
+            setError(message);
+            setIsConnecting(false);
+        }
+    }, [open]);
+
+    const handleWalletLogin = useCallback(async () => {
+        if (!signer || !walletAddress) {
+            setError('Please connect a wallet first.');
+            return;
+        }
+
+        setIsAuthenticating(true);
+        setError('');
+        setSuccess('');
+
+        try {
+            const challenge = await authApi.createWalletChallenge({
+                walletAddress,
+            });
+
+            const signature = await signer.signMessage(
+                challenge.message,
+            );
+
+            await walletLogin({
+                walletAddress,
+                challengeId: challenge.challengeId,
+                signature,
+            });
+
+            setSuccess('Wallet authenticated successfully.');
+
+            onAuthenticated?.();
+
+            if (isOpen) {
+                close();
+            }
+        } catch (caughtError) {
+            const message =
+                caughtError instanceof Error
+                    ? caughtError.message
+                    : 'Wallet authentication failed.';
+
+            setError(message);
+        } finally {
+            setIsAuthenticating(false);
+        }
+    }, [
+        signer,
+        walletAddress,
+        walletLogin,
+        onAuthenticated,
+        isOpen,
+        close,
+    ]);
+
+    const handleCopyAddress = async () => {
+        if (!walletAddress) {
+            return;
+        }
+
+        setError('');
+        setSuccess('');
+
+        try {
+            setIsCopying(true);
+
+            await navigator.clipboard.writeText(walletAddress);
+
+            setSuccess('Wallet address copied.');
+        } catch {
+            setError('Unable to copy the wallet address.');
+        } finally {
+            setIsCopying(false);
+        }
     };
-  }, [signer]);
 
-  // Reset connecting state when wallet modal closes
-  useEffect(() => {
-    if (!isOpen && isConnecting) {
-      setIsConnecting(false);
-    }
-  }, [isOpen, isConnecting]);
+    const handleLogout = useCallback(() => {
+        logout();
+        setWalletAddress('');
+        setError('');
+        setSuccess('Logged out successfully.');
+    }, [logout]);
 
-  // Handle wallet connection - opens the CCC modal
-  const handleConnectWallet = useCallback(async () => {
-    setError('');
-    setSuccess('');
-    setIsConnecting(true);
+    if (isAuthenticated && user) {
+        const authenticatedAddress =
+            walletAddress ||
+            user.walletAddress ||
+            '';
 
-    try {
-      // Open the CCC wallet picker modal
-      await open();
-    } catch (caughtError) {
-      const message = caughtError instanceof Error
-        ? caughtError.message
-        : 'Failed to connect wallet.';
-      setError(message);
-      setIsConnecting(false);
-    }
-  }, [open]);
+        return (
+            <div
+                className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-[#0A0B0D] p-4"
+                style={connectorStyles}
+            >
+                <BrandStyles />
 
-  // Handle wallet login - called after wallet is connected
-  const handleWalletLogin = useCallback(async () => {
-    if (!signer || !walletAddress) {
-      setError('Please connect a wallet first.');
-      return;
-    }
+                <div className="pointer-events-none absolute inset-0 cv-grid-bg [mask-image:radial-gradient(ellipse_60%_50%_at_50%_30%,black,transparent)]" />
 
-    setIsAuthenticating(true);
-    setError('');
-    setSuccess('');
+                <div className="pointer-events-none absolute left-1/2 top-[-160px] h-[380px] w-[380px] -translate-x-1/2 rounded-full bg-[#3E63DD]/10 blur-[120px]" />
 
-    try {
-      // Create challenge
-      const challenge = await authApi.createWalletChallenge({
-        walletAddress: walletAddress,
-      });
+                <div className="relative w-full max-w-md rounded-xl border border-[#262A30] bg-[#0D0F12]/95 px-8 pb-8 pt-8 shadow-2xl backdrop-blur">
+                    <div className="mb-7 text-center">
+                        <CorvenLogo
+                            size={76}
+                            showName={false}
+                        />
 
-      // Sign message
-      const signature = await signer.signMessage(challenge.message);
+                        <h1 className="mt-5 cv-display text-xl font-semibold text-[#F5F3EE]">
+                            Welcome back
+                        </h1>
 
-      // Login with signature
-      await walletLogin({
-        walletAddress: walletAddress,
-        challengeId: challenge.challengeId,
-        signature,
-      });
+                        <p className="mt-2 cv-mono text-xs text-[#8A8F98]">
+                            {user.email ||
+                                shortenAddress(authenticatedAddress) ||
+                                'Authenticated user'}
+                        </p>
+                    </div>
 
-      setSuccess('Wallet authenticated successfully.');
-      onAuthenticated?.();
+                    {success && (
+                        <div className="mb-4 flex items-start gap-2 rounded border border-[#4FD1C5]/25 bg-[#4FD1C5]/10 p-3 text-xs text-[#4FD1C5]">
+                            <CheckCircle className="mt-0.5 h-4 w-4 shrink-0" />
 
-      // Close the wallet modal if it's still open
-      if (isOpen) {
-        close();
-      }
-    } catch (caughtError) {
-      const message = caughtError instanceof Error
-        ? caughtError.message
-        : 'Wallet authentication failed.';
-      setError(message);
-    } finally {
-      setIsAuthenticating(false);
-    }
-  }, [signer, walletAddress, walletLogin, onAuthenticated, isOpen, close]);
+                            <span>{success}</span>
+                        </div>
+                    )}
 
-  const handleCopyAddress = async () => {
-    if (!walletAddress) return;
+                    {error && (
+                        <div className="mb-4 flex items-start gap-2 rounded border border-[#E5697A]/25 bg-[#E5697A]/10 p-3 text-xs text-[#E5697A]">
+                            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
 
-    setError('');
-    setSuccess('');
+                            <span>{error}</span>
+                        </div>
+                    )}
 
-    try {
-      setIsCopying(true);
-      await navigator.clipboard.writeText(walletAddress);
-      setSuccess('Wallet address copied.');
-    } catch {
-      setError('Unable to copy the wallet address.');
-    } finally {
-      setIsCopying(false);
-    }
-  };
+                    <div className="space-y-4">
+                        {authenticatedAddress && (
+                            <div className="rounded border border-[#1B1E23] bg-[#121417] p-4">
+                                <p className="mb-2 cv-mono text-[11px] tracking-wide text-[#5C6169]">
+                                    CONNECTED WALLET
+                                </p>
 
-  const handleLogout = useCallback(() => {
-    logout();
-    setWalletAddress('');
-    setSuccess('Logged out successfully.');
-  }, [logout]);
+                                <div className="flex items-center justify-between gap-3">
+                                    <code
+                                        className="min-w-0 truncate cv-mono text-sm text-[#E7E4DC]"
+                                        title={authenticatedAddress}
+                                    >
+                                        {shortenAddress(authenticatedAddress)}
+                                    </code>
 
-  // If user is already authenticated, show logged in state
-  if (isAuthenticated && user) {
-    return (
-      <div className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-[#0A0B0D] p-4">
-        <BrandStyles />
-        <div className="absolute inset-0 cv-grid-bg pointer-events-none [mask-image:radial-gradient(ellipse_60%_50%_at_50%_30%,black,transparent)]" />
+                                    <button
+                                        type="button"
+                                        onClick={handleCopyAddress}
+                                        disabled={
+                                            !walletAddress ||
+                                            isCopying
+                                        }
+                                        className="rounded p-2 text-[#5C6169] transition hover:bg-[#1B1E23] hover:text-[#F5F3EE] disabled:cursor-not-allowed disabled:opacity-50"
+                                        aria-label="Copy wallet address"
+                                    >
+                                        {isCopying ? (
+                                            <Loader2 className="h-4 w-4 animate-spin" />
+                                        ) : (
+                                            <Copy className="h-4 w-4" />
+                                        )}
+                                    </button>
+                                </div>
+                            </div>
+                        )}
 
-        <div className="relative w-full max-w-md rounded-lg border border-[#262A30] bg-[#0D0F12] px-8 pb-8 pt-8">
-          <div className="mb-7 text-center">
-            <div className="mx-auto mb-4 flex h-11 w-11 items-center justify-center rounded border border-[#4FD1C5]/25 bg-[#4FD1C5]/10">
-              <User className="h-5 w-5 text-[#4FD1C5]" />
-            </div>
+                        <button
+                            type="button"
+                            onClick={handleLogout}
+                            className="flex w-full items-center justify-center gap-2 rounded border border-[#262A30] bg-[#121417] px-4 py-3 text-sm font-semibold text-[#C7C4BC] transition hover:border-[#3E63DD]/40 hover:bg-[#1B1E23] hover:text-[#F5F3EE]"
+                        >
+                            <LogOut className="h-4 w-4" />
 
-            <h1 className="cv-display text-xl font-semibold text-[#F5F3EE]">
-              Welcome back
-            </h1>
-
-            <p className="mt-2 cv-mono text-xs text-[#8A8F98]">
-              {user.email || user.walletAddress ? shortenAddress(user.walletAddress) : 'Authenticated user'}
-            </p>
-          </div>
-
-          {success && (
-            <div className="mb-4 flex items-start gap-2 rounded border border-[#4FD1C5]/25 bg-[#4FD1C5]/10 p-3 text-xs text-[#4FD1C5]">
-              <CheckCircle className="mt-0.5 h-4 w-4 shrink-0" />
-              <span>{success}</span>
-            </div>
-          )}
-
-          <div className="space-y-4">
-            {walletAddress && (
-              <div className="rounded border border-[#1B1E23] bg-[#121417] p-4">
-                <p className="mb-2 cv-mono text-[11px] tracking-wide text-[#5C6169]">CONNECTED WALLET</p>
-                <div className="flex items-center justify-between gap-3">
-                  <code
-                    className="min-w-0 truncate cv-mono text-sm text-[#E7E4DC]"
-                    title={walletAddress}
-                  >
-                    {shortenAddress(walletAddress)}
-                  </code>
-                  <button
-                    type="button"
-                    onClick={handleCopyAddress}
-                    disabled={!walletAddress || isCopying}
-                    className="rounded p-2 text-[#5C6169] transition hover:bg-[#1B1E23] hover:text-[#F5F3EE] disabled:cursor-not-allowed disabled:opacity-50"
-                    aria-label="Copy wallet address"
-                  >
-                    <Copy className="h-4 w-4" />
-                  </button>
+                            Sign out
+                        </button>
+                    </div>
                 </div>
-              </div>
-            )}
-
-            <button
-              type="button"
-              onClick={handleLogout}
-              className="flex w-full items-center justify-center gap-2 rounded border border-[#262A30] bg-[#121417] px-4 py-3 text-sm font-semibold text-[#C7C4BC] transition hover:bg-[#1B1E23] hover:text-[#F5F3EE]"
-            >
-              <LogOut className="h-4 w-4" />
-              Sign out
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // Not authenticated - show login flow
-  return (
-    <div className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-[#0A0B0D] p-4">
-      <BrandStyles />
-      <div className="absolute inset-0 cv-grid-bg pointer-events-none [mask-image:radial-gradient(ellipse_60%_50%_at_50%_30%,black,transparent)]" />
-
-      <div className="relative w-full max-w-md rounded-lg border border-[#262A30] bg-[#0D0F12] px-8 pb-8 pt-8">
-        <div className="mb-7 text-center">
-
-          <h1 className="cv-display text-xl font-semibold text-[#F5F3EE]">
-            Sign in with your wallet
-          </h1>
-
-          <p className="mt-2 text-sm text-[#8A8F98]">
-            Connect a CKB wallet and sign a secure authentication message.
-          </p>
-        </div>
-
-        {error && (
-          <div className="mb-4 flex items-start gap-2 rounded border border-[#E5697A]/25 bg-[#E5697A]/10 p-3 text-xs text-[#E5697A]">
-            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-            <span>{error}</span>
-          </div>
-        )}
-
-        {success && (
-          <div className="mb-4 flex items-start gap-2 rounded border border-[#4FD1C5]/25 bg-[#4FD1C5]/10 p-3 text-xs text-[#4FD1C5]">
-            <CheckCircle className="mt-0.5 h-4 w-4 shrink-0" />
-            <span>{success}</span>
-          </div>
-        )}
-
-        {!signer ? (
-          // No wallet connected - show connect button
-          <button
-            type="button"
-            onClick={handleConnectWallet}
-            disabled={isConnecting}
-            className="flex w-full items-center justify-center gap-2 rounded bg-[#21262d] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#527AF0] disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {isConnecting ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Connecting...
-              </>
-            ) : (
-              <>
-                Connect wallet
-              </>
-            )}
-          </button>
-        ) : (
-          // Wallet connected - show sign in button
-          <div className="space-y-4">
-            <div className="rounded border border-[#1B1E23] bg-[#121417] p-4">
-              <p className="mb-2 cv-mono text-[11px] tracking-wide text-[#5C6169]">CONNECTED WALLET</p>
-              <div className="flex items-center justify-between gap-3">
-                <code
-                  className="min-w-0 truncate cv-mono text-sm text-[#E7E4DC]"
-                  title={walletAddress}
-                >
-                  {walletAddress
-                    ? shortenAddress(walletAddress)
-                    : 'Loading address...'}
-                </code>
-
-                <button
-                  type="button"
-                  onClick={handleCopyAddress}
-                  disabled={!walletAddress || isCopying}
-                  className="rounded p-2 text-[#5C6169] transition hover:bg-[#1B1E23] hover:text-[#F5F3EE] disabled:cursor-not-allowed disabled:opacity-50"
-                  aria-label="Copy wallet address"
-                >
-                  <Copy className="h-4 w-4" />
-                </button>
-              </div>
             </div>
+        );
+    }
 
-            <button
-              type="button"
-              onClick={handleWalletLogin}
-              disabled={!walletAddress || isAuthenticating}
-              className="flex w-full items-center justify-center gap-2 rounded bg-[#21262d] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#527AF0] disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {isAuthenticating ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Waiting for signature...
-                </>
-              ) : (
-                <>
-                  Sign in with wallet
-                </>
-              )}
-            </button>
+    return (
+        <div
+            className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-[#0A0B0D] p-4"
+            style={connectorStyles}
+        >
+            <BrandStyles />
 
-            <button
-              type="button"
-              onClick={handleConnectWallet}
-              disabled={isConnecting}
-              className="flex w-full items-center justify-center gap-2 rounded border border-[#262A30] bg-[#121417] px-4 py-2.5 text-xs font-semibold text-[#C7C4BC] transition hover:bg-[#1B1E23] hover:text-[#F5F3EE]"
-            >
-              <Wallet className="h-4 w-4" />
-              Change wallet
-            </button>
-          </div>
-        )}
-      </div>
-    </div>
-  );
+            <div className="pointer-events-none absolute inset-0 cv-grid-bg [mask-image:radial-gradient(ellipse_60%_50%_at_50%_30%,black,transparent)]" />
+
+            <div className="pointer-events-none absolute left-1/2 top-[-150px] h-[420px] w-[420px] -translate-x-1/2 rounded-full bg-[#3E63DD]/10 blur-[130px]" />
+
+            <div className="pointer-events-none absolute bottom-[-220px] right-[-120px] h-[420px] w-[420px] rounded-full bg-[#7C3AED]/10 blur-[150px]" />
+
+            <div className="relative w-full max-w-md rounded-xl border border-[#262A30] bg-[#0D0F12]/95 px-8 pb-8 pt-8 shadow-2xl backdrop-blur">
+                <div className="mb-7 text-center">
+                    <CorvenLogo size={200} showName={false} />
+
+                    <div className="mt-7 border-t border-[#1B1E23] pt-6">
+                        <h1 className="cv-display text-xl font-semibold text-[#F5F3EE]">
+                            Sign in with your wallet
+                        </h1>
+
+                        <p className="mt-2 text-sm leading-6 text-[#8A8F98]">
+                            Connect a CKB wallet and sign a secure
+                            authentication message.
+                        </p>
+                    </div>
+                </div>
+
+                {error && (
+                    <div className="mb-4 flex items-start gap-2 rounded border border-[#E5697A]/25 bg-[#E5697A]/10 p-3 text-xs text-[#E5697A]">
+                        <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+
+                        <span>{error}</span>
+                    </div>
+                )}
+
+                {success && (
+                    <div className="mb-4 flex items-start gap-2 rounded border border-[#4FD1C5]/25 bg-[#4FD1C5]/10 p-3 text-xs text-[#4FD1C5]">
+                        <CheckCircle className="mt-0.5 h-4 w-4 shrink-0" />
+
+                        <span>{success}</span>
+                    </div>
+                )}
+
+                {!signer ? (
+                    <button
+                        type="button"
+                        onClick={handleConnectWallet}
+                        disabled={isConnecting}
+                        className="flex w-full items-center justify-center gap-2 rounded bg-[#3E63DD] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#527AF0] disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                        {isConnecting ? (
+                            <>
+                                <Loader2 className="h-4 w-4 animate-spin" />
+
+                                Connecting...
+                            </>
+                        ) : (
+                            <>
+                                <Wallet className="h-4 w-4" />
+
+                                Connect wallet
+                            </>
+                        )}
+                    </button>
+                ) : (
+                    <div className="space-y-4">
+                        <div className="rounded border border-[#1B1E23] bg-[#121417] p-4">
+                            <p className="mb-2 cv-mono text-[11px] tracking-wide text-[#5C6169]">
+                                CONNECTED WALLET
+                            </p>
+
+                            <div className="flex items-center justify-between gap-3">
+                                <code
+                                    className="min-w-0 truncate cv-mono text-sm text-[#E7E4DC]"
+                                    title={walletAddress}
+                                >
+                                    {walletAddress
+                                        ? shortenAddress(walletAddress)
+                                        : 'Loading address...'}
+                                </code>
+
+                                <button
+                                    type="button"
+                                    onClick={handleCopyAddress}
+                                    disabled={
+                                        !walletAddress ||
+                                        isCopying
+                                    }
+                                    className="rounded p-2 text-[#5C6169] transition hover:bg-[#1B1E23] hover:text-[#F5F3EE] disabled:cursor-not-allowed disabled:opacity-50"
+                                    aria-label="Copy wallet address"
+                                >
+                                    {isCopying ? (
+                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                    ) : (
+                                        <Copy className="h-4 w-4" />
+                                    )}
+                                </button>
+                            </div>
+                        </div>
+
+                        <button
+                            type="button"
+                            onClick={handleWalletLogin}
+                            disabled={
+                                !walletAddress ||
+                                isAuthenticating
+                            }
+                            className="flex w-full items-center justify-center gap-2 rounded bg-[#3E63DD] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#527AF0] disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                            {isAuthenticating ? (
+                                <>
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+
+                                    Waiting for signature...
+                                </>
+                            ) : (
+                                <>
+                                    <Wallet className="h-4 w-4" />
+
+                                    Sign in with wallet
+                                </>
+                            )}
+                        </button>
+
+                        <button
+                            type="button"
+                            onClick={handleConnectWallet}
+                            disabled={isConnecting}
+                            className="flex w-full items-center justify-center gap-2 rounded border border-[#262A30] bg-[#121417] px-4 py-2.5 text-xs font-semibold text-[#C7C4BC] transition hover:border-[#3E63DD]/40 hover:bg-[#1B1E23] hover:text-[#F5F3EE] disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                            {isConnecting ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                                <Wallet className="h-4 w-4" />
+                            )}
+
+                            Change wallet
+                        </button>
+                    </div>
+                )}
+
+                <p className="mt-6 text-center cv-mono text-[10px] leading-5 text-[#5C6169]">
+                    Your wallet remains under your control.
+                    <br />
+                    Corven never stores private keys.
+                </p>
+            </div>
+        </div>
+    );
 }
 
-export default function AuthView(props: AuthViewProps) {
-  return (
-    <WalletAuthContent {...props} />
-  );
+export default function AuthView(
+    props: AuthViewProps,
+) {
+    return (
+        <WalletAuthContent {...props} />
+    );
 }

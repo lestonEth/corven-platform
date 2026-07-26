@@ -78,12 +78,7 @@ export default function AppLayout() {
             />
 
             <div className="flex flex-1 pt-14 overflow-hidden h-[calc(100vh-3.5rem)]">
-                <Sidebar
-                    activeView={activeView}
-                    setActiveView={setActiveView}
-                    activeIdeTab={activeIdeTab}
-                    setActiveIdeTab={setActiveIdeTab}
-                />
+                <Sidebar />
 
                 <main className="flex-1 ml-16 overflow-y-auto bg-[#0d1117] pb-8">
                     <Outlet

@@ -12,6 +12,27 @@ interface HeaderProps {
   onLogout: () => void;
 }
 
+
+function CorvenLogo({
+  size = 88,
+}: {
+  size?: number;
+}) {
+  return (
+    <div className="flex flex-col items-center">
+      <img
+        src="/assets/corven-icon-3.png"
+        alt="Corven IDE logo"
+        width={size}
+        height={size}
+        className="cv-logo-glow object-contain"
+      />
+
+
+    </div>
+  );
+}
+
 export default function Header({
   activeView,
   setActiveView,
@@ -104,18 +125,13 @@ export default function Header({
   };
 
   return (
-    <header className="bg-[#161b22] border-b border-[#30363d] flex justify-between items-center w-full px-6 h-14 z-50 fixed top-0 select-none">
+    <header className="bg-[#161b22] border-b border-[#30363d] flex justify-between items-center w-full pl-3 pr-6 h-14 z-50 fixed top-0 select-none">
       <div className="flex items-center gap-8">
         <div
           onClick={() => setActiveView('home')}
           className="flex items-center gap-2 cursor-pointer group"
         >
-          <div className="bg-[#1f6feb] p-1.5 rounded text-white shadow-lg shadow-primary-container/20 group-hover:scale-105 transition-transform">
-            <Terminal className="h-5 w-5" />
-          </div>
-          <span className="font-headline-sm text-lg font-black tracking-tight text-white bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent">
-            Corven
-          </span>
+          <CorvenLogo size={50} />
         </div>
 
         <nav className="hidden md:flex gap-1">

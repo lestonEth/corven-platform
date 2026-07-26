@@ -26,8 +26,8 @@ export function ResizeHandle({
             onPointerDown={onPointerDown}
             className={
                 isHorizontal
-                    ? 'group relative w-0 shrink-0 cursor-col-resize'
-                    : 'group relative h-0 shrink-0 cursor-row-resize'
+                    ? 'relative w-0 shrink-0 cursor-col-resize'
+                    : 'relative h-0 shrink-0 cursor-row-resize'
             }
             style={{ zIndex: 20 }}
         >
@@ -35,16 +35,16 @@ export function ResizeHandle({
             <div
                 className={
                     isHorizontal
-                        ? '-translate-x-1/2 absolute top-0 h-full w-3'
-                        : '-translate-y-1/2 absolute left-0 h-3 w-full'
+                        ? 'absolute top-0 h-full w-3 -translate-x-1/2'
+                        : 'absolute left-0 h-3 w-full -translate-y-1/2'
                 }
             />
             {/* visible line, highlights on hover/drag */}
             <div
                 className={
                     (isHorizontal
-                        ? '-translate-x-1/2 absolute top-0 h-full w-px '
-                        : '-translate-y-1/2 absolute left-0 h-px w-full ') +
+                        ? 'absolute top-0 h-full w-px -translate-x-1/2 '
+                        : 'absolute left-0 h-px w-full -translate-y-1/2 ') +
                     (isDragging
                         ? 'bg-blue-500'
                         : 'bg-[#30363d] group-hover:bg-blue-500/70')
